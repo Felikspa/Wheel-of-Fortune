@@ -25,6 +25,12 @@ class _WheelPageState extends State<WheelPage>
   double _baseRotation = 0;
   Animation<double>? _rotationAnimation;
   int? _lastSelectedWheelId;
+  Brightness? _lastBrightness;
+  int _glowJitterSeed = DateTime.now().microsecondsSinceEpoch;
+  Offset _glowJitterA = Offset.zero;
+  Offset _glowJitterB = Offset.zero;
+  double _glowScaleA = 0.86;
+  double _glowScaleB = 0.94;
 
   @override
   void initState() {
@@ -36,6 +42,7 @@ class _WheelPageState extends State<WheelPage>
           setState(() => _rotation = animation.value);
         }
       });
+    _refreshGlowJitter();
   }
 
   @override
@@ -55,6 +62,11 @@ class _WheelPageState extends State<WheelPage>
           _lastSelectedWheelId = wheel?.id;
           _rotation = 0;
           _baseRotation = 0;
+          _refreshGlowJitter(wheelId: wheel?.id);
+        }
+        if (_lastBrightness != Theme.of(context).brightness) {
+          _lastBrightness = Theme.of(context).brightness;
+          _refreshGlowJitter(wheelId: wheel?.id);
         }
         if (wheel == null) {
           return Center(
@@ -85,10 +97,14 @@ class _WheelPageState extends State<WheelPage>
         }
         final canSpin = !controller.spinning && wheel.items.length >= 2;
         final winner = controller.winnerItem;
-        final panelGradient = _panelGradientForPalette(wheel.palette, isDark);
+        final accentColor = _paletteAccentColor(wheel.palette, isDark);
+        final glowColors = _paletteGlowColors(wheel.palette, isDark);
+        final onAccentColor = accentColor.computeLuminance() > 0.45
+            ? Colors.black
+            : Colors.white;
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -118,51 +134,75 @@ class _WheelPageState extends State<WheelPage>
                     text: wheel.probabilityMode == ProbabilityMode.equal
                         ? l10n.modeEqual
                         : l10n.modeWeighted,
+                    accentColor: accentColor,
                   ),
                 ],
               ),
               const SizedBox(height: 14),
               Expanded(
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(30),
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: panelGradient,
-                    ),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withValues(alpha: 0.07)
-                          : Colors.black.withValues(alpha: 0.05),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        blurRadius: 24,
-                        spreadRadius: 0,
-                        offset: const Offset(0, 12),
-                        color: isDark
-                            ? Colors.black.withValues(alpha: 0.35)
-                            : const Color(0x3320355F),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final size = min(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    );
+                    return Center(
+                      child: SizedBox(
+                        width: size,
+                        height: size,
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Positioned.fill(
+                              child: _buildGlowSource(
+                                size: size,
+                                alignment: Alignment(
+                                  -0.58 + _glowJitterA.dx,
+                                  -0.56 + _glowJitterA.dy,
+                                ),
+                                color: glowColors[0],
+                                radiusFactor: _glowScaleA,
+                                isDark: isDark,
+                                tilt: -0.28,
+                              ),
+                            ),
+                            Positioned.fill(
+                              child: _buildGlowSource(
+                                size: size,
+                                alignment: Alignment(
+                                  0.48 + _glowJitterB.dx,
+                                  0.54 + _glowJitterB.dy,
+                                ),
+                                color: glowColors[1],
+                                radiusFactor: _glowScaleB,
+                                isDark: isDark,
+                                tilt: 0.42,
+                              ),
+                            ),
+                            WheelCanvas(
+                              wheel: wheel,
+                              rotation: _rotation,
+                              winnerItemId: controller.winnerItemId,
+                              enabled: !controller.spinning,
+                              onTapSlice: (index) =>
+                                  _showItemDetails(context, wheel.items[index]),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
-                  child: WheelCanvas(
-                    wheel: wheel,
-                    rotation: _rotation,
-                    winnerItemId: controller.winnerItemId,
-                    enabled: !controller.spinning,
-                    onTapSlice: (index) =>
-                        _showItemDetails(context, wheel.items[index]),
-                  ),
+                    );
+                  },
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               FilledButton.icon(
                 onPressed: canSpin
                     ? () => _spin(context, controller, wheel)
                     : null,
+                style: FilledButton.styleFrom(
+                  backgroundColor: accentColor,
+                  foregroundColor: onAccentColor,
+                ),
                 icon: Icon(
                   controller.spinning
                       ? Icons.motion_photos_paused_rounded
@@ -177,7 +217,7 @@ class _WheelPageState extends State<WheelPage>
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeOutCubic,
@@ -188,9 +228,7 @@ class _WheelPageState extends State<WheelPage>
                     color: winner == null
                         ? Theme.of(context).dividerTheme.color ??
                               Colors.transparent
-                        : Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.36),
+                        : accentColor.withValues(alpha: isDark ? 0.65 : 0.45),
                     width: winner == null ? 1 : 1.6,
                   ),
                 ),
@@ -229,7 +267,10 @@ class _WheelPageState extends State<WheelPage>
                             ],
                           ),
                         ),
-                        const Icon(Icons.chevron_right_rounded),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          color: winner == null ? null : accentColor,
+                        ),
                       ],
                     ),
                   ),
@@ -316,33 +357,99 @@ class _WheelPageState extends State<WheelPage>
     );
   }
 
-  List<Color> _panelGradientForPalette(String palette, bool isDark) {
+  Color _paletteAccentColor(String palette, bool isDark) {
+    return switch (palette) {
+      'random' => isDark ? const Color(0xFFBFA3FF) : const Color(0xFF7367F0),
+      'ocean' => isDark ? const Color(0xFF71C5FF) : const Color(0xFF2188F6),
+      'sunset' => isDark ? const Color(0xFFFFA36E) : const Color(0xFFEE6C2B),
+      'mint' => isDark ? const Color(0xFF7DE4CA) : const Color(0xFF16B38A),
+      'mono' => isDark ? const Color(0xFF9EA7B4) : const Color(0xFF6F7783),
+      _ => isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
+    };
+  }
+
+  List<Color> _paletteGlowColors(String palette, bool isDark) {
     return switch (palette) {
       'random' =>
         isDark
-            ? const [Color(0xCC231A2F), Color(0xCC152436)]
-            : const [Color(0xFFFFF7FB), Color(0xFFEFF6FF)],
+            ? [const Color(0xFF9E8BFF), const Color(0xFF54AFFF)]
+            : [const Color(0xFF7A6CF4), const Color(0xFF3E8EF9)],
       'ocean' =>
         isDark
-            ? const [Color(0xCC152233), Color(0xCC0E1826)]
-            : const [Color(0xF5F8FCFF), Color(0xFFEAF2FF)],
+            ? [const Color(0xFF53B8FF), const Color(0xFF35D7C8)]
+            : [const Color(0xFF2A96FF), const Color(0xFF2CCFBA)],
       'sunset' =>
         isDark
-            ? const [Color(0xCC302015), Color(0xCC221515)]
-            : const [Color(0xFFFFF5EB), Color(0xFFFFECE6)],
+            ? [const Color(0xFFFF9B65), const Color(0xFFFF5A86)]
+            : [const Color(0xFFF57A38), const Color(0xFFEC4E6F)],
       'mint' =>
         isDark
-            ? const [Color(0xCC152A26), Color(0xCC101F1D)]
-            : const [Color(0xFFEFFFFA), Color(0xFFE8FFF5)],
+            ? [const Color(0xFF59DFC1), const Color(0xFF5CCBF7)]
+            : [const Color(0xFF26C8A0), const Color(0xFF3AAAE8)],
       'mono' =>
         isDark
-            ? const [Color(0xCC20232B), Color(0xCC171A21)]
-            : const [Color(0xFFF6F7FA), Color(0xFFECEFF4)],
+            ? [const Color(0xFF8D97A7), const Color(0xFF6B7585)]
+            : [const Color(0xFF858E9A), const Color(0xFFA8B0BC)],
       _ =>
         isDark
-            ? const [Color(0xCC1A1E2A), Color(0xCC11141D)]
-            : const [Color(0xF9FFFFFF), Color(0xFFF2F5FF)],
+            ? [const Color(0xFF9AB4FF), const Color(0xFF6FA0FF)]
+            : [const Color(0xFF4E6BDB), const Color(0xFF3F8AF1)],
     };
+  }
+
+  void _refreshGlowJitter({int? wheelId}) {
+    final seedBase =
+        _glowJitterSeed ^
+        (wheelId ?? 0) ^
+        DateTime.now().millisecondsSinceEpoch;
+    final rng = Random(seedBase);
+    _glowJitterA = Offset(
+      (rng.nextDouble() - 0.5) * 0.18,
+      (rng.nextDouble() - 0.5) * 0.18,
+    );
+    _glowJitterB = Offset(
+      (rng.nextDouble() - 0.5) * 0.18,
+      (rng.nextDouble() - 0.5) * 0.18,
+    );
+    _glowScaleA = 0.78 + rng.nextDouble() * 0.2;
+    _glowScaleB = 0.86 + rng.nextDouble() * 0.22;
+    _glowJitterSeed = seedBase ^ 0x5F3759DF;
+  }
+
+  Widget _buildGlowSource({
+    required double size,
+    required Alignment alignment,
+    required Color color,
+    required double radiusFactor,
+    required bool isDark,
+    required double tilt,
+  }) {
+    return IgnorePointer(
+      child: Align(
+        alignment: alignment,
+        child: Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..rotateZ(tilt)
+            ..scale(1.0, isDark ? 0.88 : 0.92),
+          child: Container(
+            width: size * radiusFactor,
+            height: size * radiusFactor,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  color.withValues(alpha: isDark ? 0.42 : 0.24),
+                  color.withValues(alpha: isDark ? 0.16 : 0.09),
+                  color.withValues(alpha: 0.0),
+                ],
+                stops: const [0.0, 0.38, 1.0],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _detailRow(BuildContext context, String label, String? value) {
@@ -368,10 +475,15 @@ class _WheelPageState extends State<WheelPage>
 }
 
 class _PillTag extends StatelessWidget {
-  const _PillTag({required this.icon, required this.text});
+  const _PillTag({
+    required this.icon,
+    required this.text,
+    required this.accentColor,
+  });
 
   final IconData icon;
   final String text;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -380,18 +492,14 @@ class _PillTag extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.09)
-            : Colors.black.withValues(alpha: 0.05),
+        color: accentColor.withValues(alpha: isDark ? 0.18 : 0.14),
         border: Border.all(
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.14)
-              : Colors.black.withValues(alpha: 0.08),
+          color: accentColor.withValues(alpha: isDark ? 0.45 : 0.28),
         ),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 14),
+          Icon(icon, size: 14, color: accentColor),
           const SizedBox(width: 6),
           Text(text, style: Theme.of(context).textTheme.labelMedium),
         ],

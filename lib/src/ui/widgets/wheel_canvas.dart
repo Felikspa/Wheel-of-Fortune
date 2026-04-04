@@ -112,9 +112,16 @@ class _WheelPainter extends CustomPainter {
     final slices = wheel.items;
     final isDark = brightness == Brightness.dark;
     final hubRadius = wheelRadius * 0.14;
-    final hubAccentColor = _hubAccentColor(isDark);
+    final hubAccentColor = _paletteAccentColor(wheel.palette, isDark);
 
-    _drawOuterRing(canvas, center, radius, isDark);
+    _drawOuterRing(
+      canvas,
+      center,
+      radius,
+      isDark,
+      wheel.palette,
+      hubAccentColor,
+    );
 
     if (slices.isEmpty) {
       final paint = Paint()..color = Colors.grey.withValues(alpha: 0.22);
@@ -174,10 +181,7 @@ class _WheelPainter extends CustomPainter {
         maxLines: 1,
         ellipsis: '…',
       )..layout(maxWidth: maxLabelWidth);
-      var textRotation = labelAngle;
-      if (textRotation > pi / 2 && textRotation < 3 * pi / 2) {
-        textRotation += pi;
-      }
+      final textRotation = labelAngle;
       canvas.save();
       canvas.translate(labelOffset.dx, labelOffset.dy);
       canvas.rotate(textRotation);
@@ -225,24 +229,17 @@ class _WheelPainter extends CustomPainter {
     Offset center,
     double radius,
     bool isDark,
+    String palette,
+    Color accentColor,
   ) {
     final ringRect = Rect.fromCircle(center: center, radius: radius * 0.94);
+    final ringColors = _ringColorsForPalette(
+      palette: palette,
+      isDark: isDark,
+      accentColor: accentColor,
+    );
     final ringPaint = Paint()
-      ..shader = SweepGradient(
-        colors: isDark
-            ? const [
-                Color(0xFF2A2F41),
-                Color(0xFF1A1E2B),
-                Color(0xFF31374A),
-                Color(0xFF2A2F41),
-              ]
-            : const [
-                Color(0xFFF8FAFF),
-                Color(0xFFDFE7FF),
-                Color(0xFFF4F7FF),
-                Color(0xFFF8FAFF),
-              ],
-      ).createShader(ringRect);
+      ..shader = SweepGradient(colors: ringColors).createShader(ringRect);
     canvas.drawCircle(center, radius * 0.94, ringPaint);
     canvas.drawCircle(
       center,
@@ -268,8 +265,11 @@ class _WheelPainter extends CustomPainter {
     final hub = Paint()
       ..shader = RadialGradient(
         colors: isDark
-            ? const [Color(0xFF3B425A), Color(0xFF1D2131)]
-            : const [Color(0xFFFFFFFF), Color(0xFFD7E0FF)],
+            ? [
+                Color.lerp(accentColor, Colors.white, 0.28)!,
+                Color.lerp(accentColor, Colors.black, 0.58)!,
+              ]
+            : [Colors.white, Color.lerp(accentColor, Colors.white, 0.72)!],
       ).createShader(hubRect);
     canvas.drawCircle(center, hubRadius, hub);
     canvas.drawCircle(
@@ -307,8 +307,53 @@ class _WheelPainter extends CustomPainter {
     );
   }
 
-  Color _hubAccentColor(bool isDark) {
-    return isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB);
+  Color _paletteAccentColor(String palette, bool isDark) {
+    return switch (palette) {
+      'random' => isDark ? const Color(0xFFBFA3FF) : const Color(0xFF7367F0),
+      'ocean' => isDark ? const Color(0xFF71C5FF) : const Color(0xFF2188F6),
+      'sunset' => isDark ? const Color(0xFFFFA36E) : const Color(0xFFEE6C2B),
+      'mint' => isDark ? const Color(0xFF7DE4CA) : const Color(0xFF16B38A),
+      'mono' => isDark ? const Color(0xFF9EA7B4) : const Color(0xFF6F7783),
+      _ => isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
+    };
+  }
+
+  List<Color> _ringColorsForPalette({
+    required String palette,
+    required bool isDark,
+    required Color accentColor,
+  }) {
+    if (palette == 'random') {
+      return isDark
+          ? const [
+              Color(0xFF2A2142),
+              Color(0xFF1B2D43),
+              Color(0xFF31253C),
+              Color(0xFF2A2142),
+            ]
+          : const [
+              Color(0xFFFFF7FC),
+              Color(0xFFEFF3FF),
+              Color(0xFFF7F2FF),
+              Color(0xFFFFF7FC),
+            ];
+    }
+    final c1 = Color.lerp(
+      accentColor,
+      isDark ? Colors.black : Colors.white,
+      isDark ? 0.72 : 0.86,
+    )!;
+    final c2 = Color.lerp(
+      accentColor,
+      isDark ? Colors.black : Colors.white,
+      isDark ? 0.82 : 0.93,
+    )!;
+    final c3 = Color.lerp(
+      accentColor,
+      isDark ? Colors.white : Colors.black,
+      isDark ? 0.12 : 0.04,
+    )!;
+    return [c1, c2, c3, c1];
   }
 
   List<Color> _buildSliceColors(
