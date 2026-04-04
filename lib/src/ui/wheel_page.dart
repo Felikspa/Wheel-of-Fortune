@@ -237,14 +237,18 @@ class _WheelPageState extends State<WheelPage> with SingleTickerProviderStateMix
       return;
     }
     HapticFeedback.lightImpact();
+    var delta = outcome.targetDelta - _baseRotation;
+    while (delta < 4 * pi) {
+      delta += 2 * pi;
+    }
     _animationController.duration = Duration(milliseconds: wheel.spinDurationMs);
     final curved = CurvedAnimation(parent: _animationController, curve: Curves.easeOutCubic);
     _rotationAnimation = Tween<double>(
       begin: _baseRotation,
-      end: _baseRotation + outcome.targetDelta,
+      end: _baseRotation + delta,
     ).animate(curved);
     await _animationController.forward(from: 0);
-    _baseRotation = (_baseRotation + outcome.targetDelta) % (2 * pi);
+    _baseRotation = (_baseRotation + delta) % (2 * pi);
     _rotation = _baseRotation;
     controller.finishSpin(outcome);
     HapticFeedback.lightImpact();

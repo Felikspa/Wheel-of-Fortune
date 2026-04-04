@@ -89,7 +89,7 @@ class AppController extends ChangeNotifier {
   Future<void> initialize() async {
     await _repository.init();
     _settings = await _repository.loadSettings();
-    await _reloadWheels(createDefaultIfEmpty: true);
+    await _reloadWheels(createDefaultIfEmpty: true, notify: false);
     _loading = false;
     notifyListeners();
   }
@@ -176,6 +176,20 @@ class AppController extends ChangeNotifier {
     await saveCurrentWheelItems(updated);
   }
 
+  Future<void> updateItemByOrder(int index, WheelItemModel item) async {
+    final wheel = selectedWheel;
+    if (wheel == null || index < 0 || index >= wheel.items.length) {
+      return;
+    }
+    final updated = [...wheel.items];
+    updated[index] = item.copyWith(
+      id: wheel.items[index].id,
+      wheelId: wheel.id,
+      order: index,
+    );
+    await saveCurrentWheelItems(updated);
+  }
+
   Future<void> deleteItem(int itemId) async {
     final wheel = selectedWheel;
     if (wheel == null) {
@@ -243,7 +257,7 @@ class AppController extends ChangeNotifier {
           ),
       ],
     );
-    await _reloadWheels();
+    await _reloadWheels(notify: false);
     _selectedWheelId = created.id;
     notifyListeners();
     return ImportSummary(created: true, validItems: parsed.items.length, errors: parsed.errors);
@@ -304,7 +318,10 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _reloadWheels({bool createDefaultIfEmpty = false}) async {
+  Future<void> _reloadWheels({
+    bool createDefaultIfEmpty = false,
+    bool notify = true,
+  }) async {
     _wheels = await _repository.loadWheels();
     if (_wheels.isEmpty && createDefaultIfEmpty) {
       final created = await _repository.createWheel('Wheel 1');
@@ -320,12 +337,18 @@ class AppController extends ChangeNotifier {
 
     if (_wheels.isEmpty) {
       _selectedWheelId = null;
+      if (notify) {
+        notifyListeners();
+      }
       return;
     }
 
     final selectedExists = _wheels.any((wheel) => wheel.id == _selectedWheelId);
     if (!selectedExists) {
       _selectedWheelId = _wheels.first.id;
+    }
+    if (notify) {
+      notifyListeners();
     }
   }
 }

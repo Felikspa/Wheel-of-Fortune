@@ -375,7 +375,7 @@ class _ItemsCard extends StatelessWidget {
                       index: index,
                       child: const Icon(Icons.drag_indicator),
                     ),
-                    onTap: () => _editItem(context, item),
+                    onTap: () => _editItem(context, index, item),
                     trailing: IconButton(
                       onPressed: () => context.read<AppController>().deleteItemByOrder(index),
                       icon: const Icon(Icons.delete_outline),
@@ -551,20 +551,25 @@ class _ItemsCard extends StatelessWidget {
     };
   }
 
-  Future<void> _editItem(BuildContext context, WheelItemModel item) async {
+  Future<void> _editItem(BuildContext context, int index, WheelItemModel item) async {
     final appController = context.read<AppController>();
     final edited = await showItemEditorDialog(context, initialItem: item);
     if (edited == null) {
       return;
     }
-    await appController.updateItem(
-          item.copyWith(
+    await appController.updateItemByOrder(
+          index,
+          WheelItemModel(
+            id: item.id,
+            wheelId: item.wheelId,
+            order: item.order,
             title: edited.title,
             subtitle: edited.subtitle,
             tags: edited.tags,
             note: edited.note,
             colorHex: edited.colorHex,
             weight: edited.weight,
+            customFields: item.customFields,
           ),
         );
   }
