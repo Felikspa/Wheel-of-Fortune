@@ -314,6 +314,7 @@ class _WheelPainter extends CustomPainter {
       'sunset' => isDark ? const Color(0xFFFFA36E) : const Color(0xFFEE6C2B),
       'mint' => isDark ? const Color(0xFF7DE4CA) : const Color(0xFF16B38A),
       'mono' => isDark ? const Color(0xFF9EA7B4) : const Color(0xFF6F7783),
+      'pink' => isDark ? const Color(0xFFFFA3C8) : const Color(0xFFFF8AB6),
       _ => isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
     };
   }
@@ -400,6 +401,7 @@ class _WheelPainter extends CustomPainter {
         ...?paletteMap['sunset'],
         ...?paletteMap['mint'],
         ...?paletteMap['mono'],
+        ...?paletteMap['pink'],
       ],
       _ => paletteMap[palette] ?? paletteMap['ocean']!,
     };
@@ -412,6 +414,7 @@ class _WheelPainter extends CustomPainter {
       final anchorHsl = HSLColor.fromColor(anchor);
       final hue = switch (palette) {
         'ocean' => _wrapHue(185 + rng.nextDouble() * 70 + (i * 9)),
+        'pink' => _wrapHue(296 + rng.nextDouble() * 48 + (i * 11)),
         'mint' => _wrapHue(
           anchorHsl.hue + (rng.nextDouble() - 0.5) * 42 + (i * 13),
         ),
@@ -432,6 +435,15 @@ class _WheelPainter extends CustomPainter {
         lightness = isDark
             ? 0.34 + rng.nextDouble() * 0.42
             : 0.42 + rng.nextDouble() * 0.38;
+      } else if (palette == 'pink') {
+        saturation =
+            (isDark ? 0.84 : 0.78) +
+            (rng.nextDouble() - 0.5) * (isDark ? 0.18 : 0.16) +
+            (i.isEven ? 0.05 : -0.03);
+        lightness =
+            (isDark ? 0.53 : 0.62) +
+            rng.nextDouble() * (isDark ? 0.18 : 0.16) +
+            (i % 3 == 0 ? 0.02 : -0.01);
       } else if (palette == 'ocean') {
         saturation =
             (isDark ? 0.82 : 0.76) +

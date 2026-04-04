@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -15,12 +17,23 @@ class HomeShell extends StatefulWidget {
 
 class _HomeShellState extends State<HomeShell> {
   late final PageController _pageController;
+  late final Offset _orbJitterTopRight;
+  late final Offset _orbJitterBottomLeft;
   int _currentPage = 0;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: 0);
+    final rng = Random(DateTime.now().microsecondsSinceEpoch);
+    _orbJitterTopRight = Offset(
+      (rng.nextDouble() - 0.5) * 56,
+      (rng.nextDouble() - 0.5) * 56,
+    );
+    _orbJitterBottomLeft = Offset(
+      (rng.nextDouble() - 0.5) * 64,
+      (rng.nextDouble() - 0.5) * 64,
+    );
   }
 
   @override
@@ -42,6 +55,8 @@ class _HomeShellState extends State<HomeShell> {
     return Consumer<AppController>(
       builder: (context, controller, _) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
+        final palette = controller.selectedWheel?.palette ?? 'random';
+        final orbColors = _paletteBackdropOrbColors(palette, isDark);
         return Scaffold(
           body: DecoratedBox(
             decoration: BoxDecoration(
@@ -56,19 +71,19 @@ class _HomeShellState extends State<HomeShell> {
             child: Stack(
               children: [
                 Positioned(
-                  top: -80,
-                  right: -40,
+                  top: -80 + _orbJitterTopRight.dy,
+                  right: -40 + _orbJitterTopRight.dx,
                   child: _BackgroundOrb(
                     size: 220,
-                    color: isDark ? const Color(0x333A8DFF) : const Color(0x5568A5FF),
+                    color: orbColors[0],
                   ),
                 ),
                 Positioned(
-                  bottom: 120,
-                  left: -70,
+                  bottom: 120 + _orbJitterBottomLeft.dy,
+                  left: -70 + _orbJitterBottomLeft.dx,
                   child: _BackgroundOrb(
                     size: 250,
-                    color: isDark ? const Color(0x3320C7A8) : const Color(0x5542D3C7),
+                    color: orbColors[1],
                   ),
                 ),
                 SafeArea(
@@ -104,6 +119,39 @@ class _HomeShellState extends State<HomeShell> {
         );
       },
     );
+  }
+
+  List<Color> _paletteBackdropOrbColors(String palette, bool isDark) {
+    return switch (palette) {
+      'random' =>
+        isDark
+            ? [const Color(0x336B8BFF), const Color(0x3345D9C8)]
+            : [const Color(0x557A95FF), const Color(0x5558DCCF)],
+      'ocean' =>
+        isDark
+            ? [const Color(0x334EB7FF), const Color(0x3336D9C9)]
+            : [const Color(0x5562B9FF), const Color(0x5554DACD)],
+      'sunset' =>
+        isDark
+            ? [const Color(0x33FF915F), const Color(0x33FF4F89)]
+            : [const Color(0x55FF9868), const Color(0x55FF679D)],
+      'mint' =>
+        isDark
+            ? [const Color(0x3357E1C1), const Color(0x334EC4F2)]
+            : [const Color(0x5561DEC6), const Color(0x5569CCF7)],
+      'mono' =>
+        isDark
+            ? [const Color(0x337D879A), const Color(0x33666F80)]
+            : [const Color(0x559AA3B0), const Color(0x55B3BBC8)],
+      'pink' =>
+        isDark
+            ? [const Color(0x33FF74B5), const Color(0x339889FF)]
+            : [const Color(0x55FF93C6), const Color(0x55B7A3FF)],
+      _ =>
+        isDark
+            ? [const Color(0x336B8BFF), const Color(0x3345D9C8)]
+            : [const Color(0x557A95FF), const Color(0x5558DCCF)],
+    };
   }
 }
 

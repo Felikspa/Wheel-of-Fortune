@@ -26,6 +26,10 @@ class _WheelPageState extends State<WheelPage>
   Animation<double>? _rotationAnimation;
   int? _lastSelectedWheelId;
   Brightness? _lastBrightness;
+  String? _lastPalette;
+  String? _lastLocaleCode;
+  String? _funHint;
+  int _hintSeed = DateTime.now().microsecondsSinceEpoch;
   int _glowJitterSeed = DateTime.now().microsecondsSinceEpoch;
   Offset _glowJitterA = Offset.zero;
   Offset _glowJitterB = Offset.zero;
@@ -55,18 +59,28 @@ class _WheelPageState extends State<WheelPage>
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final localeCode = Localizations.localeOf(context).languageCode;
     return Consumer<AppController>(
       builder: (context, controller, _) {
         final wheel = controller.selectedWheel;
+        if (_lastLocaleCode != localeCode) {
+          _lastLocaleCode = localeCode;
+          _refreshFunHint(localeCode: localeCode, wheelId: wheel?.id);
+        }
         if (_lastSelectedWheelId != wheel?.id && !controller.spinning) {
           _lastSelectedWheelId = wheel?.id;
           _rotation = 0;
           _baseRotation = 0;
-          _refreshGlowJitter(wheelId: wheel?.id);
+          _refreshGlowJitter(wheelId: wheel?.id, palette: wheel?.palette);
+          _refreshFunHint(localeCode: localeCode, wheelId: wheel?.id);
         }
         if (_lastBrightness != Theme.of(context).brightness) {
           _lastBrightness = Theme.of(context).brightness;
-          _refreshGlowJitter(wheelId: wheel?.id);
+          _refreshGlowJitter(wheelId: wheel?.id, palette: wheel?.palette);
+        }
+        if (_lastPalette != wheel?.palette) {
+          _lastPalette = wheel?.palette;
+          _refreshGlowJitter(wheelId: wheel?.id, palette: wheel?.palette);
         }
         if (wheel == null) {
           return Center(
@@ -104,7 +118,7 @@ class _WheelPageState extends State<WheelPage>
             : Colors.white;
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 46),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -123,7 +137,7 @@ class _WheelPageState extends State<WheelPage>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          l10n.tapSliceForDetails,
+                          _funHint ?? l10n.tapSliceForDetails,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
                       ],
@@ -311,6 +325,10 @@ class _WheelPageState extends State<WheelPage>
     await _animationController.forward(from: 0);
     _baseRotation = (_baseRotation + delta) % (2 * pi);
     _rotation = _baseRotation;
+    _refreshFunHint(
+      localeCode: Localizations.localeOf(context).languageCode,
+      wheelId: wheel.id,
+    );
     controller.finishSpin(outcome);
     HapticFeedback.lightImpact();
   }
@@ -364,6 +382,7 @@ class _WheelPageState extends State<WheelPage>
       'sunset' => isDark ? const Color(0xFFFFA36E) : const Color(0xFFEE6C2B),
       'mint' => isDark ? const Color(0xFF7DE4CA) : const Color(0xFF16B38A),
       'mono' => isDark ? const Color(0xFF9EA7B4) : const Color(0xFF6F7783),
+      'pink' => isDark ? const Color(0xFFFFA3C8) : const Color(0xFFFF8AB6),
       _ => isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
     };
   }
@@ -390,6 +409,10 @@ class _WheelPageState extends State<WheelPage>
         isDark
             ? [const Color(0xFF8D97A7), const Color(0xFF6B7585)]
             : [const Color(0xFF858E9A), const Color(0xFFA8B0BC)],
+      'pink' =>
+        isDark
+            ? [const Color(0xFFFF79BA), const Color(0xFFAD8DFF)]
+            : [const Color(0xFFFF63AE), const Color(0xFFC29CFF)],
       _ =>
         isDark
             ? [const Color(0xFF9AB4FF), const Color(0xFF6FA0FF)]
@@ -397,10 +420,11 @@ class _WheelPageState extends State<WheelPage>
     };
   }
 
-  void _refreshGlowJitter({int? wheelId}) {
+  void _refreshGlowJitter({int? wheelId, String? palette}) {
     final seedBase =
         _glowJitterSeed ^
         (wheelId ?? 0) ^
+        (palette?.hashCode ?? 0) ^
         DateTime.now().millisecondsSinceEpoch;
     final rng = Random(seedBase);
     _glowJitterA = Offset(
@@ -414,6 +438,18 @@ class _WheelPageState extends State<WheelPage>
     _glowScaleA = 0.78 + rng.nextDouble() * 0.2;
     _glowScaleB = 0.86 + rng.nextDouble() * 0.22;
     _glowJitterSeed = seedBase ^ 0x5F3759DF;
+  }
+
+  void _refreshFunHint({required String localeCode, int? wheelId}) {
+    final hints = localeCode.startsWith('zh') ? _funHintsZh : _funHintsEn;
+    if (hints.isEmpty) {
+      return;
+    }
+    final seedBase =
+        _hintSeed ^ (wheelId ?? 0) ^ DateTime.now().millisecondsSinceEpoch;
+    final rng = Random(seedBase);
+    _funHint = hints[rng.nextInt(hints.length)];
+    _hintSeed = seedBase ^ 0x9E3779B9;
   }
 
   Widget _buildGlowSource({
@@ -432,25 +468,74 @@ class _WheelPageState extends State<WheelPage>
           transform: Matrix4.identity()
             ..rotateZ(tilt)
             ..scale(1.0, isDark ? 0.88 : 0.92),
-          child: Container(
-            width: size * radiusFactor,
-            height: size * radiusFactor,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  color.withValues(alpha: isDark ? 0.42 : 0.24),
-                  color.withValues(alpha: isDark ? 0.16 : 0.09),
-                  color.withValues(alpha: 0.0),
-                ],
-                stops: const [0.0, 0.38, 1.0],
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: size * radiusFactor * 1.16,
+                height: size * radiusFactor * 1.16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      color.withValues(alpha: isDark ? 0.34 : 0.18),
+                      color.withValues(alpha: isDark ? 0.12 : 0.06),
+                      color.withValues(alpha: 0.0),
+                    ],
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
+                ),
               ),
-            ),
+              Container(
+                width: size * radiusFactor * 0.78,
+                height: size * radiusFactor * 0.78,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      color.withValues(alpha: isDark ? 0.56 : 0.3),
+                      color.withValues(alpha: isDark ? 0.24 : 0.12),
+                      color.withValues(alpha: 0.0),
+                    ],
+                    stops: const [0.0, 0.32, 1.0],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: isDark ? 0.46 : 0.2),
+                      blurRadius: size * 0.11,
+                      spreadRadius: size * 0.008,
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
+
+  static const List<String> _funHintsZh = [
+    '今天想吃点儿什么？',
+    '需要做哪些决定？',
+    '来点随机好运气？',
+    '纠结不如转一下',
+    '今天就交给命运吧',
+    '下一步做什么更合适？',
+    '试试手气，马上出结果',
+    '给自己一个惊喜选择',
+  ];
+
+  static const List<String> _funHintsEn = [
+    'What are we in the mood for today?',
+    'What decision should we make next?',
+    'Need a little random luck?',
+    'Stuck? Give it a spin.',
+    'Let fate decide this round.',
+    'What is the best next move?',
+    'Spin once and get your answer.',
+    'Pick a surprise option today.',
+  ];
 
   Widget _detailRow(BuildContext context, String label, String? value) {
     if (value == null || value.isEmpty) {

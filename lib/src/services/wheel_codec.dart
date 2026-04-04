@@ -292,7 +292,7 @@ class WheelCodec {
   }
 
   String _resolvePalette(String? value) {
-    const allowed = {'random', 'ocean', 'sunset', 'mint', 'mono'};
+    const allowed = {'random', 'ocean', 'sunset', 'mint', 'mono', 'pink'};
     final normalized = value?.trim().toLowerCase();
     if (normalized != null && allowed.contains(normalized)) {
       return normalized;

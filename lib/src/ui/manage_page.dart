@@ -249,12 +249,15 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
     final controller = context.read<AppController>();
     final randomPaletteLabel =
         Localizations.localeOf(context).languageCode == 'zh' ? '随机' : 'Random';
+    final pinkPaletteLabel =
+        Localizations.localeOf(context).languageCode == 'zh' ? '樱粉' : 'Pink';
     final paletteOptions = <String, String>{
       'random': randomPaletteLabel,
       'ocean': l10n.paletteOcean,
       'sunset': l10n.paletteSunset,
       'mint': l10n.paletteMint,
       'mono': l10n.paletteMono,
+      'pink': pinkPaletteLabel,
     };
 
     return Card(
