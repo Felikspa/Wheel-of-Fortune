@@ -19,6 +19,18 @@ class ImportSummary {
   final List<WheelImportError> errors;
 }
 
+class QuickItemsImportSummary {
+  const QuickItemsImportSummary({
+    required this.importedItems,
+    required this.skippedByLimit,
+    required this.errors,
+  });
+
+  final int importedItems;
+  final int skippedByLimit;
+  final List<WheelImportError> errors;
+}
+
 class AppController extends ChangeNotifier {
   static const minItemsPerWheel = 2;
   static const maxItemsPerWheel = 100;
@@ -165,8 +177,21 @@ class AppController extends ChangeNotifier {
   }
 
   Future<void> deleteItem(int itemId) async {
-    await _repository.deleteItem(itemId);
-    await _reloadWheels();
+    final wheel = selectedWheel;
+    if (wheel == null) {
+      return;
+    }
+    final updated = wheel.items.where((item) => item.id != itemId).toList();
+    await saveCurrentWheelItems(updated);
+  }
+
+  Future<void> deleteItemByOrder(int index) async {
+    final wheel = selectedWheel;
+    if (wheel == null || index < 0 || index >= wheel.items.length) {
+      return;
+    }
+    final updated = [...wheel.items]..removeAt(index);
+    await saveCurrentWheelItems(updated);
   }
 
   SpinOutcome? beginSpin() {
@@ -222,6 +247,43 @@ class AppController extends ChangeNotifier {
     _selectedWheelId = created.id;
     notifyListeners();
     return ImportSummary(created: true, validItems: parsed.items.length, errors: parsed.errors);
+  }
+
+  Future<QuickItemsImportSummary> quickImportItemsToCurrentWheel(String text) async {
+    final wheel = selectedWheel;
+    if (wheel == null) {
+      return const QuickItemsImportSummary(importedItems: 0, skippedByLimit: 0, errors: []);
+    }
+
+    final parsed = _wheelCodec.importQuickItems(text);
+    if (parsed.items.isEmpty) {
+      return QuickItemsImportSummary(importedItems: 0, skippedByLimit: 0, errors: parsed.errors);
+    }
+
+    final allowed = maxItemsPerWheel - wheel.items.length;
+    if (allowed <= 0) {
+      return QuickItemsImportSummary(
+        importedItems: 0,
+        skippedByLimit: parsed.items.length,
+        errors: parsed.errors,
+      );
+    }
+
+    final importItems = parsed.items.take(allowed).toList();
+    final nextItems = [
+      ...wheel.items,
+      for (var i = 0; i < importItems.length; i++)
+        importItems[i].copyWith(
+          wheelId: wheel.id,
+          order: wheel.items.length + i,
+        ),
+    ];
+    await saveCurrentWheelItems(nextItems);
+    return QuickItemsImportSummary(
+      importedItems: importItems.length,
+      skippedByLimit: parsed.items.length - importItems.length,
+      errors: parsed.errors,
+    );
   }
 
   Future<void> setLocaleOverride(String? localeCode) async {

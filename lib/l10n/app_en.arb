@@ -59,6 +59,37 @@
   "themeLight": "Light",
   "themeDark": "Dark",
   "quickImport": "Quick Import",
+  "quickImportItems": "Quick Add Items",
+  "quickImportHint": "Paste quick item syntax here...",
+  "quickImportExampleLabel": "Example Input",
+  "quickImportExampleText": "apple;banana;grape;\n\n苹果,site:楼下,color:blue;香蕉,超市,red;梨,淘宝,orange;",
+  "syntaxGuideEntry": "Syntax Guide",
+  "syntaxGuideTitle": "Quick Import Syntax",
+  "syntaxGuideOverview": "Use this to append items to the current wheel only.",
+  "syntaxGuideRule1": "1. Use semicolon or newline to separate items. Chinese/English and full/half punctuation are all supported.",
+  "syntaxGuideRule2": "2. The first segment of each item is always the title.",
+  "syntaxGuideRule3": "3. In the first item, you can define extra fields with key:value, such as site:xxx,color:xxx.",
+  "syntaxGuideRule4": "4. Later items can omit keys and follow the same order from the first item.",
+  "syntaxGuideExample1Title": "Example 1 (title only)",
+  "syntaxGuideExample1Value": "apple;banana;grape;",
+  "syntaxGuideExample2Title": "Example 2 (site + color)",
+  "syntaxGuideExample2Value": "苹果,site:楼下,color:blue;香蕉,超市,red;梨,淘宝,orange;",
+  "quickImportAdded": "Added {count} item(s) to current wheel",
+  "@quickImportAdded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quickImportSkipped": "{count} item(s) skipped due to max item limit",
+  "@quickImportSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "quickExport": "Quick Export",
   "importWheelCode": "Import Wheel Code",
   "pasteCodeHint": "Paste wheel code here...",

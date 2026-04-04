@@ -168,6 +168,68 @@ class AppLocalizationsEn extends AppLocalizations {
   String get quickImport => 'Quick Import';
 
   @override
+  String get quickImportItems => 'Quick Add Items';
+
+  @override
+  String get quickImportHint => 'Paste quick item syntax here...';
+
+  @override
+  String get quickImportExampleLabel => 'Example Input';
+
+  @override
+  String get quickImportExampleText =>
+      'apple;banana;grape;\n\n苹果,site:楼下,color:blue;香蕉,超市,red;梨,淘宝,orange;';
+
+  @override
+  String get syntaxGuideEntry => 'Syntax Guide';
+
+  @override
+  String get syntaxGuideTitle => 'Quick Import Syntax';
+
+  @override
+  String get syntaxGuideOverview =>
+      'Use this to append items to the current wheel only.';
+
+  @override
+  String get syntaxGuideRule1 =>
+      '1. Use semicolon or newline to separate items. Chinese/English and full/half punctuation are all supported.';
+
+  @override
+  String get syntaxGuideRule2 =>
+      '2. The first segment of each item is always the title.';
+
+  @override
+  String get syntaxGuideRule3 =>
+      '3. In the first item, you can define extra fields with key:value, such as site:xxx,color:xxx.';
+
+  @override
+  String get syntaxGuideRule4 =>
+      '4. Later items can omit keys and follow the same order from the first item.';
+
+  @override
+  String get syntaxGuideExample1Title => 'Example 1 (title only)';
+
+  @override
+  String get syntaxGuideExample1Value => 'apple;banana;grape;';
+
+  @override
+  String get syntaxGuideExample2Title => 'Example 2 (site + color)';
+
+  @override
+  String get syntaxGuideExample2Value =>
+      '苹果,site:楼下,color:blue;香蕉,超市,red;梨,淘宝,orange;';
+
+  @override
+  String quickImportAdded(int count) {
+    return 'Added $count item(s) to current wheel';
+  }
+
+  @override
+  String quickImportSkipped(int count) {
+    return '$count item(s) skipped due to max item limit';
+  }
+
+  @override
   String get quickExport => 'Quick Export';
 
   @override

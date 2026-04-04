@@ -59,6 +59,37 @@
   "themeLight": "浅色",
   "themeDark": "深色",
   "quickImport": "快捷导入",
+  "quickImportItems": "快速添加项目",
+  "quickImportHint": "请粘贴简化语法项目文本...",
+  "quickImportExampleLabel": "输入示例",
+  "quickImportExampleText": "apple;banana;grape;\n\n苹果，site:楼下，color:blue；香蕉，超市，red；梨，淘宝，orange；",
+  "syntaxGuideEntry": "语法说明",
+  "syntaxGuideTitle": "快速导入语法",
+  "syntaxGuideOverview": "该功能会把项目追加到当前转盘，不会新建或覆盖转盘。",
+  "syntaxGuideRule1": "1. 用分号或换行分隔项目；中英文、全角半角的分号/逗号/冒号都可用。",
+  "syntaxGuideRule2": "2. 每条项目的第一个字段固定是标题。",
+  "syntaxGuideRule3": "3. 第一条可用 key:value 定义额外字段，如 site:楼下,color:blue。",
+  "syntaxGuideRule4": "4. 后续项目可省略 key，按第一条字段顺序自动匹配。",
+  "syntaxGuideExample1Title": "示例1（仅标题）",
+  "syntaxGuideExample1Value": "apple;banana;grape;",
+  "syntaxGuideExample2Title": "示例2（site + color）",
+  "syntaxGuideExample2Value": "苹果，site:楼下，color:blue；香蕉，超市，red；梨，淘宝，orange；",
+  "quickImportAdded": "已向当前转盘添加 {count} 个项目",
+  "@quickImportAdded": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "quickImportSkipped": "有 {count} 个项目因达到上限被跳过",
+  "@quickImportSkipped": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "quickExport": "快捷导出",
   "importWheelCode": "导入转盘代码",
   "pasteCodeHint": "请粘贴转盘代码...",

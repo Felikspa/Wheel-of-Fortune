@@ -306,6 +306,11 @@ class _ItemsCard extends StatelessWidget {
                 Text(l10n.items, style: Theme.of(context).textTheme.titleMedium),
                 const Spacer(),
                 IconButton(
+                  onPressed: () => _quickImportItems(context),
+                  icon: const Icon(Icons.playlist_add_outlined),
+                  tooltip: l10n.quickImportItems,
+                ),
+                IconButton(
                   onPressed: () => _addItem(context),
                   icon: const Icon(Icons.add),
                   tooltip: l10n.addItem,
@@ -338,7 +343,7 @@ class _ItemsCard extends StatelessWidget {
                     ),
                     onTap: () => _editItem(context, item),
                     trailing: IconButton(
-                      onPressed: () => context.read<AppController>().deleteItem(item.id),
+                      onPressed: () => context.read<AppController>().deleteItemByOrder(index),
                       icon: const Icon(Icons.delete_outline),
                     ),
                   );
@@ -371,6 +376,144 @@ class _ItemsCard extends StatelessWidget {
         weight: edited.weight,
       ),
     );
+  }
+
+  Future<void> _quickImportItems(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final appController = context.read<AppController>();
+    final text = await _showQuickImportDialog(context);
+    if (text == null || text.trim().isEmpty) {
+      return;
+    }
+
+    final summary = await appController.quickImportItemsToCurrentWheel(text);
+    if (!context.mounted) {
+      return;
+    }
+
+    final messages = <String>[];
+    if (summary.importedItems > 0) {
+      messages.add(l10n.quickImportAdded(summary.importedItems));
+    } else {
+      messages.add(l10n.importFailedNoValidItem);
+    }
+    if (summary.skippedByLimit > 0) {
+      messages.add(l10n.quickImportSkipped(summary.skippedByLimit));
+    }
+    if (summary.errors.isNotEmpty) {
+      messages.add(l10n.importErrorSummary(summary.errors.length));
+      for (final error in summary.errors.take(3)) {
+        messages.add(l10n.dslErrorLabel(error.line, _errorMessage(context, error.code)));
+      }
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(messages.join('\n'))),
+    );
+  }
+
+  Future<String?> _showQuickImportDialog(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l10n.quickImportItems),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(l10n.quickImportExampleLabel),
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(dialogContext).colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: SelectableText(l10n.quickImportExampleText),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () => _showQuickImportSyntaxGuide(dialogContext),
+                  child: Text(l10n.syntaxGuideEntry),
+                ),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: controller,
+                minLines: 6,
+                maxLines: 12,
+                decoration: InputDecoration(hintText: l10n.quickImportHint),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(controller.text),
+            child: Text(l10n.importAction),
+          ),
+        ],
+      ),
+    ).whenComplete(controller.dispose);
+  }
+
+  Future<void> _showQuickImportSyntaxGuide(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 0, 18, 20),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.syntaxGuideTitle, style: Theme.of(sheetContext).textTheme.titleLarge),
+                const SizedBox(height: 10),
+                Text(l10n.syntaxGuideOverview),
+                const SizedBox(height: 10),
+                Text(l10n.syntaxGuideRule1),
+                Text(l10n.syntaxGuideRule2),
+                Text(l10n.syntaxGuideRule3),
+                Text(l10n.syntaxGuideRule4),
+                const SizedBox(height: 10),
+                Text(l10n.syntaxGuideExample1Title, style: Theme.of(sheetContext).textTheme.titleSmall),
+                const SizedBox(height: 4),
+                SelectableText(l10n.syntaxGuideExample1Value),
+                const SizedBox(height: 10),
+                Text(l10n.syntaxGuideExample2Title, style: Theme.of(sheetContext).textTheme.titleSmall),
+                const SizedBox(height: 4),
+                SelectableText(l10n.syntaxGuideExample2Value),
+                const SizedBox(height: 14),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _errorMessage(BuildContext context, WheelImportErrorCode code) {
+    final l10n = AppLocalizations.of(context)!;
+    return switch (code) {
+      WheelImportErrorCode.missingTitle => l10n.dslErrorMissingTitle,
+      WheelImportErrorCode.tooManyFields => l10n.dslErrorTooManyFields,
+      WheelImportErrorCode.invalidColor => l10n.dslErrorInvalidColor,
+      WheelImportErrorCode.invalidWeight => l10n.dslErrorInvalidWeight,
+      WheelImportErrorCode.invalidHeader => l10n.dslErrorInvalidHeader,
+    };
   }
 
   Future<void> _editItem(BuildContext context, WheelItemModel item) async {

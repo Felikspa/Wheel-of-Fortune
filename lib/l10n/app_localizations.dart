@@ -410,6 +410,108 @@ abstract class AppLocalizations {
   /// **'Quick Import'**
   String get quickImport;
 
+  /// No description provided for @quickImportItems.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Add Items'**
+  String get quickImportItems;
+
+  /// No description provided for @quickImportHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Paste quick item syntax here...'**
+  String get quickImportHint;
+
+  /// No description provided for @quickImportExampleLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Example Input'**
+  String get quickImportExampleLabel;
+
+  /// No description provided for @quickImportExampleText.
+  ///
+  /// In en, this message translates to:
+  /// **'apple;banana;grape;\n\n苹果,site:楼下,color:blue;香蕉,超市,red;梨,淘宝,orange;'**
+  String get quickImportExampleText;
+
+  /// No description provided for @syntaxGuideEntry.
+  ///
+  /// In en, this message translates to:
+  /// **'Syntax Guide'**
+  String get syntaxGuideEntry;
+
+  /// No description provided for @syntaxGuideTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Import Syntax'**
+  String get syntaxGuideTitle;
+
+  /// No description provided for @syntaxGuideOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this to append items to the current wheel only.'**
+  String get syntaxGuideOverview;
+
+  /// No description provided for @syntaxGuideRule1.
+  ///
+  /// In en, this message translates to:
+  /// **'1. Use semicolon or newline to separate items. Chinese/English and full/half punctuation are all supported.'**
+  String get syntaxGuideRule1;
+
+  /// No description provided for @syntaxGuideRule2.
+  ///
+  /// In en, this message translates to:
+  /// **'2. The first segment of each item is always the title.'**
+  String get syntaxGuideRule2;
+
+  /// No description provided for @syntaxGuideRule3.
+  ///
+  /// In en, this message translates to:
+  /// **'3. In the first item, you can define extra fields with key:value, such as site:xxx,color:xxx.'**
+  String get syntaxGuideRule3;
+
+  /// No description provided for @syntaxGuideRule4.
+  ///
+  /// In en, this message translates to:
+  /// **'4. Later items can omit keys and follow the same order from the first item.'**
+  String get syntaxGuideRule4;
+
+  /// No description provided for @syntaxGuideExample1Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Example 1 (title only)'**
+  String get syntaxGuideExample1Title;
+
+  /// No description provided for @syntaxGuideExample1Value.
+  ///
+  /// In en, this message translates to:
+  /// **'apple;banana;grape;'**
+  String get syntaxGuideExample1Value;
+
+  /// No description provided for @syntaxGuideExample2Title.
+  ///
+  /// In en, this message translates to:
+  /// **'Example 2 (site + color)'**
+  String get syntaxGuideExample2Title;
+
+  /// No description provided for @syntaxGuideExample2Value.
+  ///
+  /// In en, this message translates to:
+  /// **'苹果,site:楼下,color:blue;香蕉,超市,red;梨,淘宝,orange;'**
+  String get syntaxGuideExample2Value;
+
+  /// No description provided for @quickImportAdded.
+  ///
+  /// In en, this message translates to:
+  /// **'Added {count} item(s) to current wheel'**
+  String quickImportAdded(int count);
+
+  /// No description provided for @quickImportSkipped.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} item(s) skipped due to max item limit'**
+  String quickImportSkipped(int count);
+
   /// No description provided for @quickExport.
   ///
   /// In en, this message translates to:

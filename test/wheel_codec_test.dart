@@ -67,5 +67,30 @@ Pasta|Hall B|||#112233|1.5
       expect(parsed.items[0].subtitle, 'S1');
       expect(parsed.items[1].weight, 2.0);
     });
+
+    test('quick import parses title-only entries', () {
+      const input = 'apple;banana;grape;';
+      final result = WheelCodec().importQuickItems(input);
+
+      expect(result.items.length, 3);
+      expect(result.items[0].title, 'apple');
+      expect(result.items[1].title, 'banana');
+      expect(result.items[2].title, 'grape');
+      expect(result.errors, isEmpty);
+    });
+
+    test('quick import maps schema from first item with mixed punctuation', () {
+      const input = '苹果，site:楼下，color:blue；香蕉，超市，red；梨，淘宝，orange；';
+      final result = WheelCodec().importQuickItems(input);
+
+      expect(result.items.length, 3);
+      expect(result.items[0].subtitle, '楼下');
+      expect(result.items[1].subtitle, '超市');
+      expect(result.items[2].subtitle, '淘宝');
+      expect(result.items[0].colorHex, '#0000FF');
+      expect(result.items[1].colorHex, '#FF0000');
+      expect(result.items[2].colorHex, '#FFA500');
+      expect(result.errors, isEmpty);
+    });
   });
 }
