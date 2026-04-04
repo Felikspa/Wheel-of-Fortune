@@ -1,0 +1,108 @@
+{
+  "@@locale": "zh",
+  "appTitle": "Wheel of Fortune",
+  "tabWheel": "转盘",
+  "tabManage": "管理",
+  "noWheelsYet": "还没有转盘",
+  "createFirstWheelHint": "请先到管理页创建第一个转盘。",
+  "goToManage": "前往管理",
+  "spin": "启动",
+  "spinning": "转动中...",
+  "result": "抽取结果",
+  "noResultYet": "暂无结果",
+  "tapSliceForDetails": "点击扇形可查看详情",
+  "atLeastTwoItems": "至少添加 2 个项目才能抽取",
+  "wheels": "转盘列表",
+  "addWheel": "新增转盘",
+  "deleteWheel": "删除转盘",
+  "deleteWheelConfirmTitle": "确认删除该转盘？",
+  "deleteWheelConfirmBody": "删除后不可恢复。",
+  "cancel": "取消",
+  "delete": "删除",
+  "wheelName": "转盘名称",
+  "probabilityMode": "概率模式",
+  "modeEqual": "等概率",
+  "modeWeighted": "权重",
+  "spinDuration": "转动时长",
+  "secondsShort": "{seconds}秒",
+  "@secondsShort": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "palette": "配色主题",
+  "paletteOcean": "海洋",
+  "paletteSunset": "日落",
+  "paletteMint": "薄荷",
+  "paletteMono": "极简灰",
+  "items": "项目",
+  "addItem": "新增项目",
+  "editItem": "编辑项目",
+  "itemTitle": "标题",
+  "itemSubtitle": "副标题",
+  "itemTags": "标签",
+  "itemNote": "备注",
+  "itemColorHex": "颜色 HEX",
+  "itemWeight": "权重",
+  "requiredField": "必填项",
+  "invalidColorHex": "请输入 #RRGGBB 或 #AARRGGBB",
+  "invalidWeight": "权重需为正数",
+  "save": "保存",
+  "language": "语言",
+  "languageSystem": "跟随系统",
+  "languageEnglish": "英文",
+  "languageChinese": "中文",
+  "theme": "主题",
+  "themeSystem": "跟随系统",
+  "themeLight": "浅色",
+  "themeDark": "深色",
+  "quickImport": "快捷导入",
+  "quickExport": "快捷导出",
+  "importWheelCode": "导入转盘代码",
+  "pasteCodeHint": "请粘贴转盘代码...",
+  "importAction": "导入",
+  "exportCopied": "已复制转盘代码",
+  "importCreatedWheel": "已导入 {count} 项，并创建新转盘",
+  "@importCreatedWheel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importFailedNoValidItem": "未解析到有效项目",
+  "importErrorSummary": "有 {count} 行导入失败",
+  "@importErrorSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "details": "详情",
+  "close": "关闭",
+  "dslErrorMissingTitle": "缺少标题",
+  "dslErrorTooManyFields": "字段过多（最多 6 个）",
+  "dslErrorInvalidColor": "颜色格式无效",
+  "dslErrorInvalidWeight": "权重格式无效",
+  "dslErrorInvalidHeader": "元信息格式无效",
+  "dslErrorLabel": "第 {line} 行：{message}",
+  "@dslErrorLabel": {
+    "placeholders": {
+      "line": {
+        "type": "int"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "loading": "加载中...",
+  "rename": "重命名",
+  "newWheelDefaultName": "新转盘",
+  "newItemDefaultTitle": "新项目",
+  "currentWheelSettings": "当前转盘设置",
+  "appSettings": "应用设置"
+}

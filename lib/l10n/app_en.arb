@@ -1,0 +1,108 @@
+{
+  "@@locale": "en",
+  "appTitle": "Wheel of Fortune",
+  "tabWheel": "Wheel",
+  "tabManage": "Manage",
+  "noWheelsYet": "No wheels yet",
+  "createFirstWheelHint": "Create your first wheel from the manage page.",
+  "goToManage": "Go to Manage",
+  "spin": "Spin",
+  "spinning": "Spinning...",
+  "result": "Result",
+  "noResultYet": "No result yet",
+  "tapSliceForDetails": "Tap a slice to view details",
+  "atLeastTwoItems": "Add at least 2 items to spin",
+  "wheels": "Wheels",
+  "addWheel": "Add Wheel",
+  "deleteWheel": "Delete Wheel",
+  "deleteWheelConfirmTitle": "Delete this wheel?",
+  "deleteWheelConfirmBody": "This action cannot be undone.",
+  "cancel": "Cancel",
+  "delete": "Delete",
+  "wheelName": "Wheel Name",
+  "probabilityMode": "Probability Mode",
+  "modeEqual": "Equal",
+  "modeWeighted": "Weighted",
+  "spinDuration": "Spin Duration",
+  "secondsShort": "{seconds}s",
+  "@secondsShort": {
+    "placeholders": {
+      "seconds": {
+        "type": "String"
+      }
+    }
+  },
+  "palette": "Palette",
+  "paletteOcean": "Ocean",
+  "paletteSunset": "Sunset",
+  "paletteMint": "Mint",
+  "paletteMono": "Mono",
+  "items": "Items",
+  "addItem": "Add Item",
+  "editItem": "Edit Item",
+  "itemTitle": "Title",
+  "itemSubtitle": "Subtitle",
+  "itemTags": "Tags",
+  "itemNote": "Note",
+  "itemColorHex": "Color Hex",
+  "itemWeight": "Weight",
+  "requiredField": "Required",
+  "invalidColorHex": "Use #RRGGBB or #AARRGGBB",
+  "invalidWeight": "Weight must be a positive number",
+  "save": "Save",
+  "language": "Language",
+  "languageSystem": "System",
+  "languageEnglish": "English",
+  "languageChinese": "Chinese",
+  "theme": "Theme",
+  "themeSystem": "System",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "quickImport": "Quick Import",
+  "quickExport": "Quick Export",
+  "importWheelCode": "Import Wheel Code",
+  "pasteCodeHint": "Paste wheel code here...",
+  "importAction": "Import",
+  "exportCopied": "Wheel code copied",
+  "importCreatedWheel": "Imported {count} item(s), created new wheel",
+  "@importCreatedWheel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "importFailedNoValidItem": "No valid items found",
+  "importErrorSummary": "{count} line(s) failed to import",
+  "@importErrorSummary": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "details": "Details",
+  "close": "Close",
+  "dslErrorMissingTitle": "Missing title",
+  "dslErrorTooManyFields": "Too many fields (max 6)",
+  "dslErrorInvalidColor": "Invalid color format",
+  "dslErrorInvalidWeight": "Invalid weight",
+  "dslErrorInvalidHeader": "Invalid metadata header",
+  "dslErrorLabel": "Line {line}: {message}",
+  "@dslErrorLabel": {
+    "placeholders": {
+      "line": {
+        "type": "int"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "loading": "Loading...",
+  "rename": "Rename",
+  "newWheelDefaultName": "New Wheel",
+  "newItemDefaultTitle": "New Item",
+  "currentWheelSettings": "Current Wheel Settings",
+  "appSettings": "App Settings"
+}
