@@ -47,7 +47,9 @@ class ManagePage extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: wheel == null ? null : () => _deleteWheel(context, wheel.id),
+                    onPressed: wheel == null
+                        ? null
+                        : () => _deleteWheel(context, wheel.id),
                     icon: const Icon(Icons.delete_outline),
                     label: Text(l10n.deleteWheel),
                   ),
@@ -59,7 +61,9 @@ class ManagePage extends StatelessWidget {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: wheel == null ? null : () => _exportWheel(context),
+                    onPressed: wheel == null
+                        ? null
+                        : () => _exportWheel(context),
                     icon: const Icon(Icons.upload_outlined),
                     label: Text(l10n.quickExport),
                   ),
@@ -112,8 +116,14 @@ class ManagePage extends StatelessWidget {
         title: Text(l10n.deleteWheelConfirmTitle),
         content: Text(l10n.deleteWheelConfirmBody),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(false), child: Text(l10n.cancel)),
-          FilledButton(onPressed: () => Navigator.of(context).pop(true), child: Text(l10n.delete)),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l10n.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l10n.delete),
+          ),
         ],
       ),
     );
@@ -133,9 +143,9 @@ class ManagePage extends StatelessWidget {
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(l10n.exportCopied)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l10n.exportCopied)));
   }
 
   Future<void> _importWheel(BuildContext context) async {
@@ -153,7 +163,10 @@ class ManagePage extends StatelessWidget {
           decoration: InputDecoration(hintText: l10n.pasteCodeHint),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(l10n.cancel)),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(l10n.cancel),
+          ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(inputController.text),
             child: Text(l10n.importAction),
@@ -183,9 +196,9 @@ class ManagePage extends StatelessWidget {
         );
       }
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(messages.join('\n'))),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(messages.join('\n'))));
   }
 
   String _errorMessage(BuildContext context, WheelImportErrorCode code) {
@@ -223,7 +236,8 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
   void didUpdateWidget(covariant _WheelSettingsCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     final wheelChanged = oldWidget.wheel.id != widget.wheel.id;
-    final valueChanged = oldWidget.wheel.spinDurationMs != widget.wheel.spinDurationMs;
+    final valueChanged =
+        oldWidget.wheel.spinDurationMs != widget.wheel.spinDurationMs;
     if (!_isDraggingDuration && (wheelChanged || valueChanged)) {
       _spinDuration = widget.wheel.spinDurationMs.toDouble();
     }
@@ -233,7 +247,10 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final controller = context.read<AppController>();
+    final randomPaletteLabel =
+        Localizations.localeOf(context).languageCode == 'zh' ? '随机' : 'Random';
     final paletteOptions = <String, String>{
+      'random': randomPaletteLabel,
       'ocean': l10n.paletteOcean,
       'sunset': l10n.paletteSunset,
       'mint': l10n.paletteMint,
@@ -246,31 +263,52 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(l10n.currentWheelSettings, style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              l10n.currentWheelSettings,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: 12),
             TextFormField(
+              key: ValueKey(
+                'wheel-name-${widget.wheel.id}-${widget.wheel.name}',
+              ),
               initialValue: widget.wheel.name,
               decoration: InputDecoration(labelText: l10n.wheelName),
               onFieldSubmitted: (value) {
                 if (value.trim().isEmpty) {
                   return;
                 }
-                controller.updateWheelConfig(wheelId: widget.wheel.id, name: value.trim());
+                controller.updateWheelConfig(
+                  wheelId: widget.wheel.id,
+                  name: value.trim(),
+                );
               },
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<ProbabilityMode>(
+              key: ValueKey(
+                'wheel-mode-${widget.wheel.id}-${widget.wheel.probabilityMode.name}',
+              ),
               initialValue: widget.wheel.probabilityMode,
               decoration: InputDecoration(labelText: l10n.probabilityMode),
               items: [
-                DropdownMenuItem(value: ProbabilityMode.equal, child: Text(l10n.modeEqual)),
-                DropdownMenuItem(value: ProbabilityMode.weighted, child: Text(l10n.modeWeighted)),
+                DropdownMenuItem(
+                  value: ProbabilityMode.equal,
+                  child: Text(l10n.modeEqual),
+                ),
+                DropdownMenuItem(
+                  value: ProbabilityMode.weighted,
+                  child: Text(l10n.modeWeighted),
+                ),
               ],
               onChanged: (value) {
                 if (value == null) {
                   return;
                 }
-                controller.updateWheelConfig(wheelId: widget.wheel.id, mode: value);
+                controller.updateWheelConfig(
+                  wheelId: widget.wheel.id,
+                  mode: value,
+                );
               },
             ),
             const SizedBox(height: 12),
@@ -297,6 +335,9 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
               },
             ),
             DropdownButtonFormField<String>(
+              key: ValueKey(
+                'wheel-palette-${widget.wheel.id}-${widget.wheel.palette}',
+              ),
               initialValue: widget.wheel.palette,
               decoration: InputDecoration(labelText: l10n.palette),
               items: paletteOptions.entries
@@ -311,7 +352,10 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
                 if (value == null) {
                   return;
                 }
-                controller.updateWheelConfig(wheelId: widget.wheel.id, palette: value);
+                controller.updateWheelConfig(
+                  wheelId: widget.wheel.id,
+                  palette: value,
+                );
               },
             ),
           ],
@@ -337,7 +381,10 @@ class _ItemsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text(l10n.items, style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  l10n.items,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const Spacer(),
                 IconButton(
                   onPressed: () => _quickImportItems(context),
@@ -370,14 +417,18 @@ class _ItemsCard extends StatelessWidget {
                   return ListTile(
                     key: ValueKey(item.id),
                     title: Text(item.title),
-                    subtitle: item.subtitle == null ? null : Text(item.subtitle!),
+                    subtitle: item.subtitle == null
+                        ? null
+                        : Text(item.subtitle!),
                     leading: ReorderableDragStartListener(
                       index: index,
                       child: const Icon(Icons.drag_indicator),
                     ),
                     onTap: () => _editItem(context, index, item),
                     trailing: IconButton(
-                      onPressed: () => context.read<AppController>().deleteItemByOrder(index),
+                      onPressed: () => context
+                          .read<AppController>()
+                          .deleteItemByOrder(index),
                       icon: const Icon(Icons.delete_outline),
                     ),
                   );
@@ -437,13 +488,15 @@ class _ItemsCard extends StatelessWidget {
     if (summary.errors.isNotEmpty) {
       messages.add(l10n.importErrorSummary(summary.errors.length));
       for (final error in summary.errors.take(3)) {
-        messages.add(l10n.dslErrorLabel(error.line, _errorMessage(context, error.code)));
+        messages.add(
+          l10n.dslErrorLabel(error.line, _errorMessage(context, error.code)),
+        );
       }
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(messages.join('\n'))),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(messages.join('\n'))));
   }
 
   Future<String?> _showQuickImportDialog(BuildContext context) {
@@ -464,7 +517,9 @@ class _ItemsCard extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Theme.of(dialogContext).colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
+                  color: Theme.of(
+                    dialogContext,
+                  ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: SelectableText(l10n.quickImportExampleText),
@@ -515,7 +570,10 @@ class _ItemsCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l10n.syntaxGuideTitle, style: Theme.of(sheetContext).textTheme.titleLarge),
+                Text(
+                  l10n.syntaxGuideTitle,
+                  style: Theme.of(sheetContext).textTheme.titleLarge,
+                ),
                 const SizedBox(height: 10),
                 Text(l10n.syntaxGuideOverview),
                 const SizedBox(height: 10),
@@ -524,11 +582,17 @@ class _ItemsCard extends StatelessWidget {
                 Text(l10n.syntaxGuideRule3),
                 Text(l10n.syntaxGuideRule4),
                 const SizedBox(height: 10),
-                Text(l10n.syntaxGuideExample1Title, style: Theme.of(sheetContext).textTheme.titleSmall),
+                Text(
+                  l10n.syntaxGuideExample1Title,
+                  style: Theme.of(sheetContext).textTheme.titleSmall,
+                ),
                 const SizedBox(height: 4),
                 SelectableText(l10n.syntaxGuideExample1Value),
                 const SizedBox(height: 10),
-                Text(l10n.syntaxGuideExample2Title, style: Theme.of(sheetContext).textTheme.titleSmall),
+                Text(
+                  l10n.syntaxGuideExample2Title,
+                  style: Theme.of(sheetContext).textTheme.titleSmall,
+                ),
                 const SizedBox(height: 4),
                 SelectableText(l10n.syntaxGuideExample2Value),
                 const SizedBox(height: 14),
@@ -551,27 +615,31 @@ class _ItemsCard extends StatelessWidget {
     };
   }
 
-  Future<void> _editItem(BuildContext context, int index, WheelItemModel item) async {
+  Future<void> _editItem(
+    BuildContext context,
+    int index,
+    WheelItemModel item,
+  ) async {
     final appController = context.read<AppController>();
     final edited = await showItemEditorDialog(context, initialItem: item);
     if (edited == null) {
       return;
     }
     await appController.updateItemByOrder(
-          index,
-          WheelItemModel(
-            id: item.id,
-            wheelId: item.wheelId,
-            order: item.order,
-            title: edited.title,
-            subtitle: edited.subtitle,
-            tags: edited.tags,
-            note: edited.note,
-            colorHex: edited.colorHex,
-            weight: edited.weight,
-            customFields: item.customFields,
-          ),
-        );
+      index,
+      WheelItemModel(
+        id: item.id,
+        wheelId: item.wheelId,
+        order: item.order,
+        title: edited.title,
+        subtitle: edited.subtitle,
+        tags: edited.tags,
+        note: edited.note,
+        colorHex: edited.colorHex,
+        weight: edited.weight,
+        customFields: item.customFields,
+      ),
+    );
   }
 }
 
@@ -590,26 +658,51 @@ class _AppSettingsCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l10n.appSettings, style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  l10n.appSettings,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String?>(
+                  key: ValueKey(
+                    'locale-${settings.localeOverride ?? 'system'}',
+                  ),
                   initialValue: settings.localeOverride,
                   decoration: InputDecoration(labelText: l10n.language),
                   items: [
-                    DropdownMenuItem<String?>(value: null, child: Text(l10n.languageSystem)),
-                    DropdownMenuItem<String?>(value: 'en', child: Text(l10n.languageEnglish)),
-                    DropdownMenuItem<String?>(value: 'zh', child: Text(l10n.languageChinese)),
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text(l10n.languageSystem),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'en',
+                      child: Text(l10n.languageEnglish),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'zh',
+                      child: Text(l10n.languageChinese),
+                    ),
                   ],
                   onChanged: (value) => controller.setLocaleOverride(value),
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<AppThemeMode>(
+                  key: ValueKey('theme-mode-${settings.themeMode.name}'),
                   initialValue: settings.themeMode,
                   decoration: InputDecoration(labelText: l10n.theme),
                   items: [
-                    DropdownMenuItem(value: AppThemeMode.system, child: Text(l10n.themeSystem)),
-                    DropdownMenuItem(value: AppThemeMode.light, child: Text(l10n.themeLight)),
-                    DropdownMenuItem(value: AppThemeMode.dark, child: Text(l10n.themeDark)),
+                    DropdownMenuItem(
+                      value: AppThemeMode.system,
+                      child: Text(l10n.themeSystem),
+                    ),
+                    DropdownMenuItem(
+                      value: AppThemeMode.light,
+                      child: Text(l10n.themeLight),
+                    ),
+                    DropdownMenuItem(
+                      value: AppThemeMode.dark,
+                      child: Text(l10n.themeDark),
+                    ),
                   ],
                   onChanged: (value) {
                     if (value != null) {

@@ -18,7 +18,7 @@ class InMemoryWheelRepository implements WheelRepository {
       name: name,
       probabilityMode: ProbabilityMode.equal,
       spinDurationMs: 4800,
-      palette: 'ocean',
+      palette: 'random',
       createdAt: now,
       updatedAt: now,
       items: const [],
@@ -84,7 +84,8 @@ class InMemoryWheelRepository implements WheelRepository {
 
   List<WheelItemModel> _normalizeOrders(List<WheelItemModel> items) {
     return [
-      for (var index = 0; index < items.length; index++) items[index].copyWith(order: index),
+      for (var index = 0; index < items.length; index++)
+        items[index].copyWith(order: index),
     ];
   }
 }

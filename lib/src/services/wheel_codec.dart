@@ -11,11 +11,7 @@ enum WheelImportErrorCode {
 }
 
 class WheelImportError {
-  const WheelImportError({
-    required this.line,
-    required this.code,
-    this.value,
-  });
+  const WheelImportError({required this.line, required this.code, this.value});
 
   final int line;
   final WheelImportErrorCode code;
@@ -43,17 +39,16 @@ class WheelImportResult {
 }
 
 class QuickItemsImportResult {
-  const QuickItemsImportResult({
-    required this.items,
-    required this.errors,
-  });
+  const QuickItemsImportResult({required this.items, required this.errors});
 
   final List<WheelItemModel> items;
   final List<WheelImportError> errors;
 }
 
 class WheelCodec {
-  static final RegExp _hexPattern = RegExp(r'^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$');
+  static final RegExp _hexPattern = RegExp(
+    r'^#([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$',
+  );
   static const _fieldLimit = 6;
 
   String exportWheel(WheelModel wheel, {DslFormat format = DslFormat.csv}) {
@@ -79,7 +74,9 @@ class WheelCodec {
       while (fields.isNotEmpty && fields.last.isEmpty) {
         fields.removeLast();
       }
-      return fields.map((value) => _escapeField(value, delimiter)).join(delimiter);
+      return fields
+          .map((value) => _escapeField(value, delimiter))
+          .join(delimiter);
     }).toList();
 
     if (format == DslFormat.csv) {
@@ -98,7 +95,7 @@ class WheelCodec {
         name: 'Imported Wheel',
         probabilityMode: ProbabilityMode.equal,
         spinDurationMs: 4800,
-        palette: 'ocean',
+        palette: 'random',
         items: [],
         errors: [],
         format: DslFormat.csv,
@@ -138,8 +135,12 @@ class WheelCodec {
     }
 
     final format = _resolveFormat(headers['format'], bodyLines);
-    final name = headers['name']?.trim().isNotEmpty == true ? headers['name']!.trim() : 'Imported Wheel';
-    final mode = headers['mode'] == 'weighted' ? ProbabilityMode.weighted : ProbabilityMode.equal;
+    final name = headers['name']?.trim().isNotEmpty == true
+        ? headers['name']!.trim()
+        : 'Imported Wheel';
+    final mode = headers['mode'] == 'weighted'
+        ? ProbabilityMode.weighted
+        : ProbabilityMode.equal;
     final spinDuration = int.tryParse(headers['spindurationms'] ?? '') ?? 4800;
     final palette = _resolvePalette(headers['palette']);
 
@@ -172,7 +173,8 @@ class WheelCodec {
     }
 
     final orderedItems = [
-      for (var i = 0; i < parsedItems.length; i++) parsedItems[i].copyWith(order: i),
+      for (var i = 0; i < parsedItems.length; i++)
+        parsedItems[i].copyWith(order: i),
     ];
 
     return WheelImportResult(
@@ -187,7 +189,9 @@ class WheelCodec {
   }
 
   QuickItemsImportResult importQuickItems(String input) {
-    final normalized = _normalizeQuickSyntax(input).replaceAll('\r\n', '\n').trim();
+    final normalized = _normalizeQuickSyntax(
+      input,
+    ).replaceAll('\r\n', '\n').trim();
     if (normalized.isEmpty) {
       return const QuickItemsImportResult(items: [], errors: []);
     }
@@ -202,9 +206,17 @@ class WheelCodec {
       if (text.isEmpty) {
         continue;
       }
-      final fields = _splitFields(text, ',').map((token) => token.trim()).toList();
+      final fields = _splitFields(
+        text,
+        ',',
+      ).map((token) => token.trim()).toList();
       if (fields.isEmpty || fields.first.isEmpty) {
-        errors.add(WheelImportError(line: entry.number, code: WheelImportErrorCode.missingTitle));
+        errors.add(
+          WheelImportError(
+            line: entry.number,
+            code: WheelImportErrorCode.missingTitle,
+          ),
+        );
         continue;
       }
 
@@ -223,7 +235,7 @@ class WheelCodec {
             schema.add(keyed.$1);
             values[keyed.$1] = keyed.$2;
           } else {
-            final fallbackKey = 'extra${i + 1}';
+            final fallbackKey = i == 0 ? 'subtitle' : 'extra${i + 1}';
             schema.add(fallbackKey);
             values[fallbackKey] = token;
           }
@@ -247,15 +259,14 @@ class WheelCodec {
         }
       }
 
-      final built = _buildQuickItem(title: title, values: values, line: entry.number, errors: errors);
+      final built = _buildQuickItem(
+        title: title,
+        values: values,
+        line: entry.number,
+        errors: errors,
+      );
       if (built != null) {
-        items.add(
-          built.copyWith(
-            id: 0,
-            wheelId: 0,
-            order: items.length,
-          ),
-        );
+        items.add(built.copyWith(id: 0, wheelId: 0, order: items.length));
       }
     }
 
@@ -270,20 +281,23 @@ class WheelCodec {
     if (normalized == 'csv') {
       return DslFormat.csv;
     }
-    final nonEmpty = bodyLines.where((line) => line.text.trim().isNotEmpty).toList();
-    if (nonEmpty.isNotEmpty && nonEmpty.every((line) => line.text.contains('|'))) {
+    final nonEmpty = bodyLines
+        .where((line) => line.text.trim().isNotEmpty)
+        .toList();
+    if (nonEmpty.isNotEmpty &&
+        nonEmpty.every((line) => line.text.contains('|'))) {
       return DslFormat.pipe;
     }
     return DslFormat.csv;
   }
 
   String _resolvePalette(String? value) {
-    const allowed = {'ocean', 'sunset', 'mint', 'mono'};
+    const allowed = {'random', 'ocean', 'sunset', 'mint', 'mono'};
     final normalized = value?.trim().toLowerCase();
     if (normalized != null && allowed.contains(normalized)) {
       return normalized;
     }
-    return 'ocean';
+    return 'random';
   }
 
   WheelItemModel? _buildQuickItem({
@@ -294,7 +308,9 @@ class WheelCodec {
   }) {
     const coreKnown = <String>{'subtitle', 'tags', 'note', 'color', 'weight'};
 
-    final subtitle = _normalizeNullable(values['subtitle'] ?? values['site'] ?? '');
+    final subtitle = _normalizeNullable(
+      values['subtitle'] ?? values['site'] ?? '',
+    );
     final tags = _normalizeNullable(values['tags'] ?? '');
 
     String? note = _normalizeNullable(values['note'] ?? '');
@@ -354,7 +370,9 @@ class WheelCodec {
     required List<WheelImportError> errors,
   }) {
     if (fields.length > _fieldLimit) {
-      errors.add(WheelImportError(line: line, code: WheelImportErrorCode.tooManyFields));
+      errors.add(
+        WheelImportError(line: line, code: WheelImportErrorCode.tooManyFields),
+      );
       return;
     }
     final padded = [...fields];
@@ -363,13 +381,21 @@ class WheelCodec {
     }
     final title = padded[0].trim();
     if (title.isEmpty) {
-      errors.add(WheelImportError(line: line, code: WheelImportErrorCode.missingTitle));
+      errors.add(
+        WheelImportError(line: line, code: WheelImportErrorCode.missingTitle),
+      );
       return;
     }
 
     final colorHex = padded[4].trim();
     if (colorHex.isNotEmpty && !_hexPattern.hasMatch(colorHex)) {
-      errors.add(WheelImportError(line: line, code: WheelImportErrorCode.invalidColor, value: colorHex));
+      errors.add(
+        WheelImportError(
+          line: line,
+          code: WheelImportErrorCode.invalidColor,
+          value: colorHex,
+        ),
+      );
       return;
     }
 
@@ -378,7 +404,13 @@ class WheelCodec {
     if (weightString.isNotEmpty) {
       weight = double.tryParse(weightString);
       if (weight == null || weight <= 0) {
-        errors.add(WheelImportError(line: line, code: WheelImportErrorCode.invalidWeight, value: weightString));
+        errors.add(
+          WheelImportError(
+            line: line,
+            code: WheelImportErrorCode.invalidWeight,
+            value: weightString,
+          ),
+        );
         return;
       }
     }
@@ -482,7 +514,8 @@ class WheelCodec {
     if (value.isEmpty) {
       return value;
     }
-    final requiresQuotes = value.contains(delimiter) ||
+    final requiresQuotes =
+        value.contains(delimiter) ||
         value.contains(';') ||
         value.contains('\n') ||
         value.contains(r'\') ||

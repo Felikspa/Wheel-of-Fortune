@@ -119,17 +119,70 @@ ThemeData buildDarkTheme() {
 Map<String, List<Color>> wheelPalettes(Brightness brightness) {
   final dark = brightness == Brightness.dark;
   return {
+    'random': dark
+        ? const [
+            Color(0xFF22D3EE),
+            Color(0xFF60A5FA),
+            Color(0xFFF472B6),
+            Color(0xFF34D399),
+          ]
+        : const [
+            Color(0xFF0EA5E9),
+            Color(0xFF3B82F6),
+            Color(0xFFEC4899),
+            Color(0xFF10B981),
+          ],
     'ocean': dark
-        ? const [Color(0xFF146C94), Color(0xFF2A9D8F), Color(0xFF4C78A8), Color(0xFF0A9396)]
-        : const [Color(0xFF5AC8FA), Color(0xFF32D74B), Color(0xFF0A84FF), Color(0xFF64D2FF)],
+        ? const [
+            Color(0xFF146C94),
+            Color(0xFF2A9D8F),
+            Color(0xFF4C78A8),
+            Color(0xFF0A9396),
+          ]
+        : const [
+            Color(0xFF5AC8FA),
+            Color(0xFF32D74B),
+            Color(0xFF0A84FF),
+            Color(0xFF64D2FF),
+          ],
     'sunset': dark
-        ? const [Color(0xFF9A3412), Color(0xFFB45309), Color(0xFFBE185D), Color(0xFF7C3AED)]
-        : const [Color(0xFFFF9F0A), Color(0xFFFF453A), Color(0xFFFF375F), Color(0xFFBF5AF2)],
+        ? const [
+            Color(0xFF9A3412),
+            Color(0xFFB45309),
+            Color(0xFFBE185D),
+            Color(0xFF7C3AED),
+          ]
+        : const [
+            Color(0xFFFF9F0A),
+            Color(0xFFFF453A),
+            Color(0xFFFF375F),
+            Color(0xFFBF5AF2),
+          ],
     'mint': dark
-        ? const [Color(0xFF0F766E), Color(0xFF0E7490), Color(0xFF166534), Color(0xFF15803D)]
-        : const [Color(0xFF66D4CF), Color(0xFF64D2FF), Color(0xFF30D158), Color(0xFF34C759)],
+        ? const [
+            Color(0xFF0F766E),
+            Color(0xFF0E7490),
+            Color(0xFF166534),
+            Color(0xFF15803D),
+          ]
+        : const [
+            Color(0xFF66D4CF),
+            Color(0xFF64D2FF),
+            Color(0xFF30D158),
+            Color(0xFF34C759),
+          ],
     'mono': dark
-        ? const [Color(0xFF3A3D44), Color(0xFF2A2C31), Color(0xFF545863), Color(0xFF6B7280)]
-        : const [Color(0xFFE5E7EB), Color(0xFFD1D5DB), Color(0xFF9CA3AF), Color(0xFF6B7280)],
+        ? const [
+            Color(0xFF3A3D44),
+            Color(0xFF2A2C31),
+            Color(0xFF545863),
+            Color(0xFF6B7280),
+          ]
+        : const [
+            Color(0xFFE5E7EB),
+            Color(0xFFD1D5DB),
+            Color(0xFF9CA3AF),
+            Color(0xFF6B7280),
+          ],
   };
 }

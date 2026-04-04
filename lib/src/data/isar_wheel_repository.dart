@@ -48,7 +48,7 @@ class IsarWheelRepository implements WheelRepository {
       ..name = name
       ..probabilityMode = ProbabilityMode.equal
       ..spinDurationMs = 4800
-      ..palette = 'ocean'
+      ..palette = 'random'
       ..createdAt = now
       ..updatedAt = now;
     await _db.writeTxn(() async {
@@ -76,9 +76,14 @@ class IsarWheelRepository implements WheelRepository {
   Future<void> deleteWheel(int wheelId) async {
     await _db.writeTxn(() async {
       await _db.wheelRecords.delete(wheelId);
-      final items = await _db.wheelItemRecords.filter().wheelIdEqualTo(wheelId).findAll();
+      final items = await _db.wheelItemRecords
+          .filter()
+          .wheelIdEqualTo(wheelId)
+          .findAll();
       if (items.isNotEmpty) {
-        await _db.wheelItemRecords.deleteAll(items.map((item) => item.id).toList());
+        await _db.wheelItemRecords.deleteAll(
+          items.map((item) => item.id).toList(),
+        );
       }
     });
   }
@@ -86,7 +91,10 @@ class IsarWheelRepository implements WheelRepository {
   @override
   Future<void> saveItems(int wheelId, List<WheelItemModel> items) async {
     await _db.writeTxn(() async {
-      final existing = await _db.wheelItemRecords.filter().wheelIdEqualTo(wheelId).findAll();
+      final existing = await _db.wheelItemRecords
+          .filter()
+          .wheelIdEqualTo(wheelId)
+          .findAll();
       final existingById = {for (final item in existing) item.id: item};
       final keptIds = <int>{};
 
@@ -105,13 +113,16 @@ class IsarWheelRepository implements WheelRepository {
           ..note = item.note
           ..colorHex = item.colorHex
           ..weight = item.weight
-          ..customFieldsJson =
-              item.customFields.isEmpty ? null : jsonEncode(item.customFields);
+          ..customFieldsJson = item.customFields.isEmpty
+              ? null
+              : jsonEncode(item.customFields);
         final id = await _db.wheelItemRecords.put(record);
         keptIds.add(id);
       }
 
-      final deleteIds = existing.where((item) => !keptIds.contains(item.id)).map((item) => item.id);
+      final deleteIds = existing
+          .where((item) => !keptIds.contains(item.id))
+          .map((item) => item.id);
       if (deleteIds.isNotEmpty) {
         await _db.wheelItemRecords.deleteAll(deleteIds.toList());
       }

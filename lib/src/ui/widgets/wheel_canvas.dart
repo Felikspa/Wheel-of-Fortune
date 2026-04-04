@@ -46,29 +46,14 @@ class WheelCanvas extends StatelessWidget {
             child: SizedBox(
               width: size,
               height: size,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  CustomPaint(
-                    size: Size.square(size),
-                    painter: _WheelPainter(
-                      wheel: wheel,
-                      rotation: rotation,
-                      winnerItemId: winnerItemId,
-                      brightness: Theme.of(context).brightness,
-                    ),
-                  ),
-                  Positioned(
-                    top: 8,
-                    child: CustomPaint(
-                      size: const Size(24, 28),
-                      painter: _PointerPainter(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                  ),
-                ],
+              child: CustomPaint(
+                size: Size.square(size),
+                painter: _WheelPainter(
+                  wheel: wheel,
+                  rotation: rotation,
+                  winnerItemId: winnerItemId,
+                  brightness: Theme.of(context).brightness,
+                ),
               ),
             ),
           ),
@@ -126,6 +111,8 @@ class _WheelPainter extends CustomPainter {
     final wheelRect = Rect.fromCircle(center: center, radius: wheelRadius);
     final slices = wheel.items;
     final isDark = brightness == Brightness.dark;
+    final hubRadius = wheelRadius * 0.14;
+    final hubAccentColor = _hubAccentColor(isDark);
 
     _drawOuterRing(canvas, center, radius, isDark);
 
@@ -157,11 +144,15 @@ class _WheelPainter extends CustomPainter {
       }
 
       final labelAngle = start + (wedge / 2);
+      final labelInnerRadius = wheelRadius * 0.3;
+      final labelOuterRadius = wheelRadius * 0.9;
+      final labelRadius = (labelInnerRadius + labelOuterRadius) / 2;
       final labelOffset = Offset(
-        center.dx + cos(labelAngle) * wheelRadius * 0.63,
-        center.dy + sin(labelAngle) * wheelRadius * 0.63,
+        center.dx + cos(labelAngle) * labelRadius,
+        center.dy + sin(labelAngle) * labelRadius,
       );
-      final text = item.title.length > 14 ? '${item.title.substring(0, 14)}…' : item.title;
+      final maxLabelWidth = max(32.0, labelOuterRadius - labelInnerRadius);
+      final text = item.title.trim();
       final textPainter = TextPainter(
         text: TextSpan(
           text: text,
@@ -181,11 +172,19 @@ class _WheelPainter extends CustomPainter {
         ),
         textDirection: TextDirection.ltr,
         maxLines: 1,
-      )..layout(maxWidth: wheelRadius * 0.56);
+        ellipsis: '…',
+      )..layout(maxWidth: maxLabelWidth);
+      var textRotation = labelAngle;
+      if (textRotation > pi / 2 && textRotation < 3 * pi / 2) {
+        textRotation += pi;
+      }
       canvas.save();
       canvas.translate(labelOffset.dx, labelOffset.dy);
-      canvas.rotate(labelAngle + pi / 2);
-      textPainter.paint(canvas, Offset(-textPainter.width / 2, -textPainter.height / 2));
+      canvas.rotate(textRotation);
+      textPainter.paint(
+        canvas,
+        Offset(-textPainter.width / 2, -textPainter.height / 2),
+      );
       canvas.restore();
     }
 
@@ -193,10 +192,13 @@ class _WheelPainter extends CustomPainter {
       ..color = Colors.white.withValues(alpha: isDark ? 0.3 : 0.65)
       ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
-    for (var i = 1; i < slices.length; i++) {
+    for (var i = 0; i < slices.length; i++) {
       final angle = (-pi / 2) + rotation + (i * wedge);
       final p1 = Offset(center.dx + cos(angle) * 0, center.dy + sin(angle) * 0);
-      final p2 = Offset(center.dx + cos(angle) * wheelRadius, center.dy + sin(angle) * wheelRadius);
+      final p2 = Offset(
+        center.dx + cos(angle) * wheelRadius,
+        center.dy + sin(angle) * wheelRadius,
+      );
       canvas.drawLine(p1, p2, dividerPaint);
     }
 
@@ -208,16 +210,38 @@ class _WheelPainter extends CustomPainter {
         ..strokeWidth = 2.6
         ..color = Colors.white.withValues(alpha: isDark ? 0.35 : 0.82),
     );
-    _drawCenterHub(canvas, center, wheelRadius, isDark);
+    _drawCenterHub(canvas, center, wheelRadius, isDark, hubAccentColor);
+    _drawMiniPointer(
+      canvas: canvas,
+      center: center,
+      hubRadius: hubRadius,
+      isDark: isDark,
+      color: hubAccentColor,
+    );
   }
 
-  void _drawOuterRing(Canvas canvas, Offset center, double radius, bool isDark) {
+  void _drawOuterRing(
+    Canvas canvas,
+    Offset center,
+    double radius,
+    bool isDark,
+  ) {
     final ringRect = Rect.fromCircle(center: center, radius: radius * 0.94);
     final ringPaint = Paint()
       ..shader = SweepGradient(
         colors: isDark
-            ? const [Color(0xFF2A2F41), Color(0xFF1A1E2B), Color(0xFF31374A), Color(0xFF2A2F41)]
-            : const [Color(0xFFF8FAFF), Color(0xFFDFE7FF), Color(0xFFF4F7FF), Color(0xFFF8FAFF)],
+            ? const [
+                Color(0xFF2A2F41),
+                Color(0xFF1A1E2B),
+                Color(0xFF31374A),
+                Color(0xFF2A2F41),
+              ]
+            : const [
+                Color(0xFFF8FAFF),
+                Color(0xFFDFE7FF),
+                Color(0xFFF4F7FF),
+                Color(0xFFF8FAFF),
+              ],
       ).createShader(ringRect);
     canvas.drawCircle(center, radius * 0.94, ringPaint);
     canvas.drawCircle(
@@ -226,11 +250,19 @@ class _WheelPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.06),
+        ..color = isDark
+            ? Colors.white.withValues(alpha: 0.12)
+            : Colors.black.withValues(alpha: 0.06),
     );
   }
 
-  void _drawCenterHub(Canvas canvas, Offset center, double wheelRadius, bool isDark) {
+  void _drawCenterHub(
+    Canvas canvas,
+    Offset center,
+    double wheelRadius,
+    bool isDark,
+    Color accentColor,
+  ) {
     final hubRadius = wheelRadius * 0.14;
     final hubRect = Rect.fromCircle(center: center, radius: hubRadius);
     final hub = Paint()
@@ -246,16 +278,44 @@ class _WheelPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6
-        ..color = isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.1),
+        ..color = isDark
+            ? Colors.white.withValues(alpha: 0.2)
+            : Colors.black.withValues(alpha: 0.1),
     );
-    canvas.drawCircle(
-      center,
-      hubRadius * 0.36,
-      Paint()..color = isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
+    canvas.drawCircle(center, hubRadius * 0.36, Paint()..color = accentColor);
+  }
+
+  void _drawMiniPointer({
+    required Canvas canvas,
+    required Offset center,
+    required double hubRadius,
+    required bool isDark,
+    required Color color,
+  }) {
+    final pointerHeight = hubRadius * 0.75;
+    final halfBase = hubRadius * 0.18;
+    final baseY = center.dy - hubRadius * 0.25;
+    final apexY = baseY - pointerHeight;
+    final path = Path()
+      ..moveTo(center.dx, apexY)
+      ..lineTo(center.dx - halfBase, baseY)
+      ..lineTo(center.dx + halfBase, baseY)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()..color = color.withValues(alpha: isDark ? 0.94 : 0.9),
     );
   }
 
-  List<Color> _buildSliceColors(List<WheelItemModel> items, String palette, bool isDark) {
+  Color _hubAccentColor(bool isDark) {
+    return isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB);
+  }
+
+  List<Color> _buildSliceColors(
+    List<WheelItemModel> items,
+    String palette,
+    bool isDark,
+  ) {
     final fallbackPool = _buildDynamicPool(
       count: max(1, items.length),
       palette: palette,
@@ -266,7 +326,9 @@ class _WheelPainter extends CustomPainter {
     var fallbackIndex = 0;
 
     for (final item in items) {
-      Color current = parseHexColor(item.colorHex) ?? fallbackPool[fallbackIndex++ % fallbackPool.length];
+      Color current =
+          parseHexColor(item.colorHex) ??
+          fallbackPool[fallbackIndex++ % fallbackPool.length];
       if (resolved.isNotEmpty) {
         current = _enforceAdjacentContrast(
           previous: resolved.last,
@@ -286,25 +348,71 @@ class _WheelPainter extends CustomPainter {
     required bool isDark,
     required int wheelId,
   }) {
-    final paletteMap = wheelPalettes(brightness);
-    final source = paletteMap[palette] ?? paletteMap['ocean']!;
+    final paletteMap = wheelPalettes(Brightness.light);
+    final source = switch (palette) {
+      'random' => <Color>[
+        ...?paletteMap['ocean'],
+        ...?paletteMap['sunset'],
+        ...?paletteMap['mint'],
+        ...?paletteMap['mono'],
+      ],
+      _ => paletteMap[palette] ?? paletteMap['ocean']!,
+    };
     final seed = _sessionColorSeed ^ wheelId ^ palette.hashCode ^ count;
     final rng = Random(seed);
-    final baseHue = _paletteBaseHue(palette);
     final colors = <Color>[];
 
     for (var i = 0; i < count; i++) {
-      final hueJitter = (rng.nextDouble() - 0.5) * 72;
-      final hue = (baseHue + (i * 137.50776405003785) + hueJitter) % 360;
-      final saturation = palette == 'mono'
-          ? (isDark ? 0.12 : 0.1)
-          : (isDark ? 0.68 + (i.isEven ? 0.08 : -0.06) : 0.64 + (i.isEven ? 0.09 : -0.05));
-      final lightness = isDark
-          ? (i.isEven ? 0.52 : 0.39)
-          : (i.isEven ? 0.57 : 0.45);
-      var color = HSLColor.fromAHSL(1, hue, saturation.clamp(0.08, 0.95), lightness.clamp(0.18, 0.82))
-          .toColor();
-      color = _blendTowardSource(color, source[i % source.length], isDark);
+      final anchor = source[(i + rng.nextInt(source.length)) % source.length];
+      final anchorHsl = HSLColor.fromColor(anchor);
+      final hue = switch (palette) {
+        'ocean' => _wrapHue(185 + rng.nextDouble() * 70 + (i * 9)),
+        'mint' => _wrapHue(
+          anchorHsl.hue + (rng.nextDouble() - 0.5) * 42 + (i * 13),
+        ),
+        'sunset' => _wrapHue(
+          anchorHsl.hue + (rng.nextDouble() - 0.5) * 52 + (i * 17),
+        ),
+        'mono' => _wrapHue(anchorHsl.hue + (rng.nextDouble() - 0.5) * 8),
+        'random' => _wrapHue(
+          anchorHsl.hue + (rng.nextDouble() - 0.5) * 120 + (i * 29),
+        ),
+        _ => _wrapHue(anchorHsl.hue + (rng.nextDouble() - 0.5) * 64 + (i * 23)),
+      };
+
+      late final double saturation;
+      late final double lightness;
+      if (palette == 'mono') {
+        saturation = (isDark ? 0.04 : 0.03) + rng.nextDouble() * 0.08;
+        lightness = isDark
+            ? 0.34 + rng.nextDouble() * 0.42
+            : 0.42 + rng.nextDouble() * 0.38;
+      } else if (palette == 'ocean') {
+        saturation =
+            (isDark ? 0.82 : 0.76) +
+            (rng.nextDouble() - 0.5) * (isDark ? 0.18 : 0.16) +
+            (i.isEven ? 0.06 : -0.02);
+        lightness =
+            (isDark ? 0.5 : 0.44) +
+            rng.nextDouble() * 0.24 +
+            (i % 3 == 0 ? 0.04 : -0.01);
+      } else {
+        saturation =
+            (isDark ? 0.78 : 0.72) +
+            (rng.nextDouble() - 0.5) * (isDark ? 0.22 : 0.2) +
+            (i.isEven ? 0.08 : -0.04);
+        lightness =
+            (isDark ? 0.46 : 0.4) +
+            rng.nextDouble() * (isDark ? 0.26 : 0.26) +
+            (i % 3 == 0 ? 0.04 : -0.02);
+      }
+      final sat = saturation.clamp(0.0, 0.98);
+      final lit = lightness.clamp(0.16, 0.9);
+
+      var color = HSLColor.fromAHSL(1, hue, sat, lit).toColor();
+      if (palette != 'mono') {
+        color = Color.lerp(color, anchor, 0.18) ?? color;
+      }
       if (colors.isNotEmpty) {
         color = _enforceAdjacentContrast(
           previous: colors.last,
@@ -316,20 +424,6 @@ class _WheelPainter extends CustomPainter {
       colors.add(color);
     }
     return colors;
-  }
-
-  double _paletteBaseHue(String palette) {
-    return switch (palette) {
-      'ocean' => 205,
-      'sunset' => 24,
-      'mint' => 150,
-      'mono' => 220,
-      _ => 200,
-    };
-  }
-
-  Color _blendTowardSource(Color generated, Color source, bool isDark) {
-    return Color.lerp(generated, source, isDark ? 0.28 : 0.32) ?? generated;
   }
 
   Color _enforceAdjacentContrast({
@@ -375,41 +469,16 @@ class _WheelPainter extends CustomPainter {
     return (hi + 0.05) / (lo + 0.05);
   }
 
+  double _wrapHue(double hue) {
+    final wrapped = hue % 360;
+    return wrapped < 0 ? wrapped + 360 : wrapped;
+  }
+
   @override
   bool shouldRepaint(covariant _WheelPainter oldDelegate) {
     return oldDelegate.rotation != rotation ||
         oldDelegate.wheel != wheel ||
         oldDelegate.winnerItemId != winnerItemId ||
         oldDelegate.brightness != brightness;
-  }
-}
-
-class _PointerPainter extends CustomPainter {
-  const _PointerPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(size.width / 2, size.height)
-      ..lineTo(0, 0)
-      ..lineTo(size.width, 0)
-      ..close();
-    canvas.drawShadow(path, Colors.black.withValues(alpha: 0.3), 5, true);
-    canvas.drawPath(
-      path,
-      Paint()
-        ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [color.withValues(alpha: 0.95), color.withValues(alpha: 0.75)],
-        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _PointerPainter oldDelegate) {
-    return oldDelegate.color != color;
   }
 }

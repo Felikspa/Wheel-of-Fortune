@@ -29,9 +29,11 @@ class SpinEngine {
     };
     final itemCount = items.length;
     final wedgeAngle = (2 * pi) / itemCount;
-    final centerAngle = (winnerIndex * wedgeAngle) + (wedgeAngle / 2);
+    final edgeSafeMargin = wedgeAngle * 0.1;
+    final randomOffsetInWedge = edgeSafeMargin + (rng.nextDouble() * (wedgeAngle - 2 * edgeSafeMargin));
+    final landingAngle = (winnerIndex * wedgeAngle) + randomOffsetInWedge;
     final turns = 6 + rng.nextInt(4);
-    final targetDelta = (turns * 2 * pi) - centerAngle;
+    final targetDelta = (turns * 2 * pi) - landingAngle;
 
     return SpinOutcome(
       winnerIndex: winnerIndex,

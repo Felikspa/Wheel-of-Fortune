@@ -14,7 +14,7 @@ class WheelRecord {
   ProbabilityMode probabilityMode = ProbabilityMode.equal;
 
   int spinDurationMs = 4800;
-  String palette = 'ocean';
+  String palette = 'random';
   late DateTime createdAt;
   late DateTime updatedAt;
 }
