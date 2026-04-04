@@ -12,29 +12,53 @@ ThemeMode toFlutterThemeMode(AppThemeMode mode) {
 
 ThemeData buildLightTheme() {
   final scheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF0A84FF),
+    seedColor: const Color(0xFF007AFF),
     brightness: Brightness.light,
   );
   return ThemeData(
     useMaterial3: true,
     platform: TargetPlatform.iOS,
     colorScheme: scheme,
-    scaffoldBackgroundColor: const Color(0xFFF4F5F7),
+    scaffoldBackgroundColor: const Color(0xFFF2F3F7),
     cardTheme: CardThemeData(
-      color: Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      color: Colors.white.withValues(alpha: 0.9),
+      elevation: 0.5,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    ),
+    dividerTheme: DividerThemeData(color: Colors.black.withValues(alpha: 0.06)),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     textTheme: Typography.blackCupertino,
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 52),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 50),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.2),
+      ),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: Colors.white.withValues(alpha: 0.95),
     ),
   );
 }
@@ -48,22 +72,46 @@ ThemeData buildDarkTheme() {
     useMaterial3: true,
     platform: TargetPlatform.iOS,
     colorScheme: scheme,
-    scaffoldBackgroundColor: const Color(0xFF0F1012),
+    scaffoldBackgroundColor: const Color(0xFF0B0C10),
     cardTheme: CardThemeData(
-      color: const Color(0xFF1A1C20),
+      color: const Color(0xFF171921).withValues(alpha: 0.92),
       elevation: 0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    ),
+    dividerTheme: DividerThemeData(color: Colors.white.withValues(alpha: 0.08)),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     ),
     textTheme: Typography.whiteCupertino,
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
+        minimumSize: const Size(0, 52),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 50),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFF5AC8FA), width: 1.2),
+      ),
       filled: true,
-      fillColor: const Color(0xFF15171A),
+      fillColor: const Color(0xFF13151A),
     ),
   );
 }

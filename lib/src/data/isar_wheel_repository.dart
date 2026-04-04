@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -102,7 +104,9 @@ class IsarWheelRepository implements WheelRepository {
           ..tags = item.tags
           ..note = item.note
           ..colorHex = item.colorHex
-          ..weight = item.weight;
+          ..weight = item.weight
+          ..customFieldsJson =
+              item.customFields.isEmpty ? null : jsonEncode(item.customFields);
         final id = await _db.wheelItemRecords.put(record);
         keptIds.add(id);
       }
@@ -188,9 +192,25 @@ class IsarWheelRepository implements WheelRepository {
               note: item.note,
               colorHex: item.colorHex,
               weight: item.weight,
+              customFields: _decodeCustomFields(item.customFieldsJson),
             ),
           )
           .toList(),
     );
+  }
+
+  Map<String, String> _decodeCustomFields(String? raw) {
+    if (raw == null || raw.isEmpty) {
+      return const {};
+    }
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) {
+      return const {};
+    }
+    final map = <String, String>{};
+    for (final entry in decoded.entries) {
+      map[entry.key.toString()] = entry.value.toString();
+    }
+    return map;
   }
 }

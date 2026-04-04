@@ -1136,38 +1136,43 @@ const WheelItemRecordSchema = CollectionSchema(
       name: r'colorHex',
       type: IsarType.string,
     ),
-    r'note': PropertySchema(
+    r'customFieldsJson': PropertySchema(
       id: 1,
+      name: r'customFieldsJson',
+      type: IsarType.string,
+    ),
+    r'note': PropertySchema(
+      id: 2,
       name: r'note',
       type: IsarType.string,
     ),
     r'order': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'order',
       type: IsarType.long,
     ),
     r'subtitle': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'subtitle',
       type: IsarType.string,
     ),
     r'tags': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'tags',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'title',
       type: IsarType.string,
     ),
     r'weight': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'weight',
       type: IsarType.double,
     ),
     r'wheelId': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'wheelId',
       type: IsarType.long,
     )
@@ -1226,6 +1231,12 @@ int _wheelItemRecordEstimateSize(
     }
   }
   {
+    final value = object.customFieldsJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.note;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -1254,13 +1265,14 @@ void _wheelItemRecordSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.colorHex);
-  writer.writeString(offsets[1], object.note);
-  writer.writeLong(offsets[2], object.order);
-  writer.writeString(offsets[3], object.subtitle);
-  writer.writeString(offsets[4], object.tags);
-  writer.writeString(offsets[5], object.title);
-  writer.writeDouble(offsets[6], object.weight);
-  writer.writeLong(offsets[7], object.wheelId);
+  writer.writeString(offsets[1], object.customFieldsJson);
+  writer.writeString(offsets[2], object.note);
+  writer.writeLong(offsets[3], object.order);
+  writer.writeString(offsets[4], object.subtitle);
+  writer.writeString(offsets[5], object.tags);
+  writer.writeString(offsets[6], object.title);
+  writer.writeDouble(offsets[7], object.weight);
+  writer.writeLong(offsets[8], object.wheelId);
 }
 
 WheelItemRecord _wheelItemRecordDeserialize(
@@ -1271,14 +1283,15 @@ WheelItemRecord _wheelItemRecordDeserialize(
 ) {
   final object = WheelItemRecord();
   object.colorHex = reader.readStringOrNull(offsets[0]);
+  object.customFieldsJson = reader.readStringOrNull(offsets[1]);
   object.id = id;
-  object.note = reader.readStringOrNull(offsets[1]);
-  object.order = reader.readLong(offsets[2]);
-  object.subtitle = reader.readStringOrNull(offsets[3]);
-  object.tags = reader.readStringOrNull(offsets[4]);
-  object.title = reader.readString(offsets[5]);
-  object.weight = reader.readDoubleOrNull(offsets[6]);
-  object.wheelId = reader.readLong(offsets[7]);
+  object.note = reader.readStringOrNull(offsets[2]);
+  object.order = reader.readLong(offsets[3]);
+  object.subtitle = reader.readStringOrNull(offsets[4]);
+  object.tags = reader.readStringOrNull(offsets[5]);
+  object.title = reader.readString(offsets[6]);
+  object.weight = reader.readDoubleOrNull(offsets[7]);
+  object.wheelId = reader.readLong(offsets[8]);
   return object;
 }
 
@@ -1294,16 +1307,18 @@ P _wheelItemRecordDeserializeProp<P>(
     case 1:
       return (reader.readStringOrNull(offset)) as P;
     case 2:
-      return (reader.readLong(offset)) as P;
-    case 3:
       return (reader.readStringOrNull(offset)) as P;
+    case 3:
+      return (reader.readLong(offset)) as P;
     case 4:
       return (reader.readStringOrNull(offset)) as P;
     case 5:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 6:
-      return (reader.readDoubleOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 7:
+      return (reader.readDoubleOrNull(offset)) as P;
+    case 8:
       return (reader.readLong(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1756,6 +1771,160 @@ extension WheelItemRecordQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'colorHex',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterFilterCondition>
+      customFieldsJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'customFieldsJson',
+      ));
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterFilterCondition>
+      customFieldsJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'customFieldsJson',
+      ));
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterFilterCondition>
+      customFieldsJsonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'customFieldsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterFilterCondition>
+      customFieldsJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'customFieldsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterFilterCondition>
+      customFieldsJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'customFieldsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterFilterCondition>
+      customFieldsJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'customFieldsJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterFilterCondition>
+      customFieldsJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'customFieldsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterFilterCondition>
+      customFieldsJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'customFieldsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterFilterCondition>
+      customFieldsJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'customFieldsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterFilterCondition>
+      customFieldsJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'customFieldsJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterFilterCondition>
+      customFieldsJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'customFieldsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterFilterCondition>
+      customFieldsJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'customFieldsJson',
         value: '',
       ));
     });
@@ -2634,6 +2803,20 @@ extension WheelItemRecordQuerySortBy
     });
   }
 
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterSortBy>
+      sortByCustomFieldsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'customFieldsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterSortBy>
+      sortByCustomFieldsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'customFieldsJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterSortBy> sortByNote() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'note', Sort.asc);
@@ -2740,6 +2923,20 @@ extension WheelItemRecordQuerySortThenBy
       thenByColorHexDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'colorHex', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterSortBy>
+      thenByCustomFieldsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'customFieldsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QAfterSortBy>
+      thenByCustomFieldsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'customFieldsJson', Sort.desc);
     });
   }
 
@@ -2857,6 +3054,14 @@ extension WheelItemRecordQueryWhereDistinct
     });
   }
 
+  QueryBuilder<WheelItemRecord, WheelItemRecord, QDistinct>
+      distinctByCustomFieldsJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'customFieldsJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<WheelItemRecord, WheelItemRecord, QDistinct> distinctByNote(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -2916,6 +3121,13 @@ extension WheelItemRecordQueryProperty
   QueryBuilder<WheelItemRecord, String?, QQueryOperations> colorHexProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'colorHex');
+    });
+  }
+
+  QueryBuilder<WheelItemRecord, String?, QQueryOperations>
+      customFieldsJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'customFieldsJson');
     });
   }
 

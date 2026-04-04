@@ -13,6 +13,7 @@ class WheelItemModel {
     this.note,
     this.colorHex,
     this.weight,
+    this.customFields = const {},
   });
 
   final int id;
@@ -24,6 +25,7 @@ class WheelItemModel {
   final String? note;
   final String? colorHex;
   final double? weight;
+  final Map<String, String> customFields;
 
   WheelItemModel copyWith({
     int? id,
@@ -35,6 +37,7 @@ class WheelItemModel {
     String? note,
     String? colorHex,
     double? weight,
+    Map<String, String>? customFields,
   }) {
     return WheelItemModel(
       id: id ?? this.id,
@@ -46,6 +49,7 @@ class WheelItemModel {
       note: note ?? this.note,
       colorHex: colorHex ?? this.colorHex,
       weight: weight ?? this.weight,
+      customFields: customFields ?? this.customFields,
     );
   }
 }

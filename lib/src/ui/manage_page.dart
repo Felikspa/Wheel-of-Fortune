@@ -200,10 +200,34 @@ class ManagePage extends StatelessWidget {
   }
 }
 
-class _WheelSettingsCard extends StatelessWidget {
+class _WheelSettingsCard extends StatefulWidget {
   const _WheelSettingsCard({required this.wheel});
 
   final WheelModel wheel;
+
+  @override
+  State<_WheelSettingsCard> createState() => _WheelSettingsCardState();
+}
+
+class _WheelSettingsCardState extends State<_WheelSettingsCard> {
+  late double _spinDuration;
+  bool _isDraggingDuration = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _spinDuration = widget.wheel.spinDurationMs.toDouble();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WheelSettingsCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final wheelChanged = oldWidget.wheel.id != widget.wheel.id;
+    final valueChanged = oldWidget.wheel.spinDurationMs != widget.wheel.spinDurationMs;
+    if (!_isDraggingDuration && (wheelChanged || valueChanged)) {
+      _spinDuration = widget.wheel.spinDurationMs.toDouble();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -225,18 +249,18 @@ class _WheelSettingsCard extends StatelessWidget {
             Text(l10n.currentWheelSettings, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
             TextFormField(
-              initialValue: wheel.name,
+              initialValue: widget.wheel.name,
               decoration: InputDecoration(labelText: l10n.wheelName),
               onFieldSubmitted: (value) {
                 if (value.trim().isEmpty) {
                   return;
                 }
-                controller.updateWheelConfig(wheelId: wheel.id, name: value.trim());
+                controller.updateWheelConfig(wheelId: widget.wheel.id, name: value.trim());
               },
             ),
             const SizedBox(height: 10),
             DropdownButtonFormField<ProbabilityMode>(
-              initialValue: wheel.probabilityMode,
+              initialValue: widget.wheel.probabilityMode,
               decoration: InputDecoration(labelText: l10n.probabilityMode),
               items: [
                 DropdownMenuItem(value: ProbabilityMode.equal, child: Text(l10n.modeEqual)),
@@ -246,24 +270,34 @@ class _WheelSettingsCard extends StatelessWidget {
                 if (value == null) {
                   return;
                 }
-                controller.updateWheelConfig(wheelId: wheel.id, mode: value);
+                controller.updateWheelConfig(wheelId: widget.wheel.id, mode: value);
               },
             ),
             const SizedBox(height: 12),
             Text(
-              '${l10n.spinDuration}: ${l10n.secondsShort((wheel.spinDurationMs / 1000).toStringAsFixed(1))}',
+              '${l10n.spinDuration}: ${l10n.secondsShort((_spinDuration / 1000).toStringAsFixed(1))}',
             ),
             Slider(
-              value: wheel.spinDurationMs.toDouble(),
+              value: _spinDuration,
               min: 2000,
               max: 10000,
               divisions: 16,
               onChanged: (value) {
-                controller.updateWheelConfig(wheelId: wheel.id, spinDurationMs: value.round());
+                setState(() {
+                  _spinDuration = value;
+                  _isDraggingDuration = true;
+                });
+              },
+              onChangeEnd: (value) async {
+                _isDraggingDuration = false;
+                await controller.updateWheelConfig(
+                  wheelId: widget.wheel.id,
+                  spinDurationMs: value.round(),
+                );
               },
             ),
             DropdownButtonFormField<String>(
-              initialValue: wheel.palette,
+              initialValue: widget.wheel.palette,
               decoration: InputDecoration(labelText: l10n.palette),
               items: paletteOptions.entries
                   .map(
@@ -277,7 +311,7 @@ class _WheelSettingsCard extends StatelessWidget {
                 if (value == null) {
                   return;
                 }
-                controller.updateWheelConfig(wheelId: wheel.id, palette: value);
+                controller.updateWheelConfig(wheelId: widget.wheel.id, palette: value);
               },
             ),
           ],
@@ -439,7 +473,7 @@ class _ItemsCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () => _showQuickImportSyntaxGuide(dialogContext),
+                  onPressed: () => _showQuickImportSyntaxGuide(context),
                   child: Text(l10n.syntaxGuideEntry),
                 ),
               ),
@@ -471,6 +505,7 @@ class _ItemsCard extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     return showModalBottomSheet<void>(
       context: context,
+      useRootNavigator: true,
       showDragHandle: true,
       isScrollControlled: true,
       builder: (sheetContext) => SafeArea(

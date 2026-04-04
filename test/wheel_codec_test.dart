@@ -87,6 +87,9 @@ Pasta|Hall B|||#112233|1.5
       expect(result.items[0].subtitle, '楼下');
       expect(result.items[1].subtitle, '超市');
       expect(result.items[2].subtitle, '淘宝');
+      expect(result.items[0].customFields['site'], '楼下');
+      expect(result.items[1].customFields['site'], '超市');
+      expect(result.items[2].customFields['site'], '淘宝');
       expect(result.items[0].colorHex, '#0000FF');
       expect(result.items[1].colorHex, '#FF0000');
       expect(result.items[2].colorHex, '#FFA500');

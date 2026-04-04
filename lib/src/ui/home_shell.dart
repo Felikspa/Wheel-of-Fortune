@@ -41,29 +41,61 @@ class _HomeShellState extends State<HomeShell> {
   Widget build(BuildContext context) {
     return Consumer<AppController>(
       builder: (context, controller, _) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Scaffold(
-          body: SafeArea(
+          body: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isDark
+                    ? const [Color(0xFF080A12), Color(0xFF0D1020), Color(0xFF0B0C10)]
+                    : const [Color(0xFFF9FBFF), Color(0xFFF2F5FF), Color(0xFFEFF2F8)],
+              ),
+            ),
             child: Stack(
               children: [
-                PageView(
-                  controller: _pageController,
-                  physics: controller.spinning
-                      ? const NeverScrollableScrollPhysics()
-                      : const BouncingScrollPhysics(),
-                  onPageChanged: (value) => setState(() => _currentPage = value),
-                  children: [
-                    WheelPage(onOpenManage: _goToManagePage),
-                    const ManagePage(),
-                  ],
+                Positioned(
+                  top: -80,
+                  right: -40,
+                  child: _BackgroundOrb(
+                    size: 220,
+                    color: isDark ? const Color(0x333A8DFF) : const Color(0x5568A5FF),
+                  ),
                 ),
                 Positioned(
-                  bottom: 12,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: IgnorePointer(
-                      child: PageDots(count: 2, activeIndex: _currentPage),
-                    ),
+                  bottom: 120,
+                  left: -70,
+                  child: _BackgroundOrb(
+                    size: 250,
+                    color: isDark ? const Color(0x3320C7A8) : const Color(0x5542D3C7),
+                  ),
+                ),
+                SafeArea(
+                  child: Stack(
+                    children: [
+                      PageView(
+                        controller: _pageController,
+                        physics: controller.spinning
+                            ? const NeverScrollableScrollPhysics()
+                            : const BouncingScrollPhysics(),
+                        onPageChanged: (value) => setState(() => _currentPage = value),
+                        children: [
+                          WheelPage(onOpenManage: _goToManagePage),
+                          const ManagePage(),
+                        ],
+                      ),
+                      Positioned(
+                        bottom: 12,
+                        left: 0,
+                        right: 0,
+                        child: Center(
+                          child: IgnorePointer(
+                            child: PageDots(count: 2, activeIndex: _currentPage),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -71,6 +103,29 @@ class _HomeShellState extends State<HomeShell> {
           ),
         );
       },
+    );
+  }
+}
+
+class _BackgroundOrb extends StatelessWidget {
+  const _BackgroundOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [color, color.withValues(alpha: 0)],
+          ),
+        ),
+      ),
     );
   }
 }

@@ -46,6 +46,7 @@ class _WheelPageState extends State<WheelPage> with SingleTickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Consumer<AppController>(
       builder: (context, controller, _) {
         final wheel = controller.selectedWheel;
@@ -82,35 +83,77 @@ class _WheelPageState extends State<WheelPage> with SingleTickerProviderStateMix
         final winner = controller.winnerItem;
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 22),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 22),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                wheel.name,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                l10n.tapSliceForDetails,
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          wheel.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          l10n.tapSliceForDetails,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  _PillTag(
+                    icon: Icons.tune_rounded,
+                    text: wheel.probabilityMode == ProbabilityMode.equal ? l10n.modeEqual : l10n.modeWeighted,
+                  ),
+                ],
               ),
               const SizedBox(height: 14),
               Expanded(
-                child: WheelCanvas(
-                  wheel: wheel,
-                  rotation: _rotation,
-                  winnerItemId: controller.winnerItemId,
-                  enabled: !controller.spinning,
-                  onTapSlice: (index) => _showItemDetails(context, wheel.items[index]),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(30),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: isDark
+                          ? const [Color(0xCC1A1E2A), Color(0xCC11141D)]
+                          : const [Color(0xF9FFFFFF), Color(0xFFF2F5FF)],
+                    ),
+                    border: Border.all(
+                      color: isDark ? Colors.white.withValues(alpha: 0.07) : Colors.black.withValues(alpha: 0.05),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        blurRadius: 24,
+                        spreadRadius: 0,
+                        offset: const Offset(0, 12),
+                        color: isDark ? Colors.black.withValues(alpha: 0.35) : const Color(0x3320355F),
+                      ),
+                    ],
+                  ),
+                  child: WheelCanvas(
+                    wheel: wheel,
+                    rotation: _rotation,
+                    winnerItemId: controller.winnerItemId,
+                    enabled: !controller.spinning,
+                    onTapSlice: (index) => _showItemDetails(context, wheel.items[index]),
+                  ),
                 ),
               ),
-              const SizedBox(height: 10),
-              FilledButton(
+              const SizedBox(height: 12),
+              FilledButton.icon(
                 onPressed: canSpin ? () => _spin(context, controller, wheel) : null,
-                child: Text(controller.spinning ? l10n.spinning : l10n.spin),
+                icon: Icon(controller.spinning ? Icons.motion_photos_paused_rounded : Icons.play_arrow_rounded),
+                label: Text(controller.spinning ? l10n.spinning : l10n.spin),
               ),
               const SizedBox(height: 8),
               if (wheel.items.length < 2)
@@ -119,32 +162,63 @@ class _WheelPageState extends State<WheelPage> with SingleTickerProviderStateMix
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
-              const SizedBox(height: 8),
-              Card(
+              const SizedBox(height: 10),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOutCubic,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(22),
+                  color: Theme.of(context).cardTheme.color,
+                  border: Border.all(
+                    color: winner == null
+                        ? Theme.of(context).dividerTheme.color ?? Colors.transparent
+                        : Theme.of(context).colorScheme.primary.withValues(alpha: 0.36),
+                    width: winner == null ? 1 : 1.6,
+                  ),
+                ),
                 child: InkWell(
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(22),
                   onTap: winner == null ? null : () => _showItemDetails(context, winner),
                   child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                    child: Row(
                       children: [
-                        Text(
-                          l10n.result,
-                          style: Theme.of(context).textTheme.labelLarge,
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          winner?.title ?? l10n.noResultYet,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        if (winner?.subtitle != null) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            winner!.subtitle!,
-                            style: Theme.of(context).textTheme.bodyMedium,
+                        Container(
+                          width: 34,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
                           ),
-                        ],
+                          child: Icon(Icons.flag_rounded, color: Theme.of(context).colorScheme.primary),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.result,
+                                style: Theme.of(context).textTheme.labelLarge,
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                winner?.title ?? l10n.noResultYet,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                              if (winner?.subtitle != null)
+                                Text(
+                                  winner!.subtitle!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded),
                       ],
                     ),
                   ),
@@ -198,6 +272,12 @@ class _WheelPageState extends State<WheelPage> with SingleTickerProviderStateMix
               _detailRow(context, l10n.itemNote, item.note),
               _detailRow(context, l10n.itemColorHex, item.colorHex),
               _detailRow(context, l10n.itemWeight, item.weight?.toString()),
+              for (final entry in item.customFields.entries)
+                _detailRow(
+                  context,
+                  entry.key,
+                  entry.value,
+                ),
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,
@@ -227,6 +307,35 @@ class _WheelPageState extends State<WheelPage> with SingleTickerProviderStateMix
             TextSpan(text: value),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PillTag extends StatelessWidget {
+  const _PillTag({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: isDark ? Colors.white.withValues(alpha: 0.09) : Colors.black.withValues(alpha: 0.05),
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.14) : Colors.black.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14),
+          const SizedBox(width: 6),
+          Text(text, style: Theme.of(context).textTheme.labelMedium),
+        ],
       ),
     );
   }

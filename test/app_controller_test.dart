@@ -18,4 +18,20 @@ void main() {
     expect(updated.items[baseCount].title, 'apple');
     expect(updated.items[baseCount + 1].title, 'banana');
   });
+
+  test('quick import preserves custom fields', () async {
+    final controller = AppController(repository: InMemoryWheelRepository());
+    await controller.initialize();
+    final summary = await controller.quickImportItemsToCurrentWheel(
+      '苹果，site:楼下，type:午餐；香蕉，超市，水果；',
+    );
+    final wheel = controller.selectedWheel!;
+    final imported = wheel.items.sublist(wheel.items.length - 2);
+
+    expect(summary.importedItems, 2);
+    expect(imported[0].customFields['site'], '楼下');
+    expect(imported[0].customFields['type'], '午餐');
+    expect(imported[1].customFields['site'], '超市');
+    expect(imported[1].customFields['type'], '水果');
+  });
 }

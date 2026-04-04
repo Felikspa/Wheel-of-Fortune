@@ -35,6 +35,7 @@ class WheelItemRecord {
   String? note;
   String? colorHex;
   double? weight;
+  String? customFieldsJson;
 }
 
 @collection

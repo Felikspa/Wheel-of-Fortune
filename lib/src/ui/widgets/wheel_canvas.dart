@@ -58,11 +58,12 @@ class WheelCanvas extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    top: -4,
-                    child: Icon(
-                      Icons.navigation_rounded,
-                      size: 26,
-                      color: Theme.of(context).colorScheme.onSurface,
+                    top: 8,
+                    child: CustomPaint(
+                      size: const Size(24, 28),
+                      painter: _PointerPainter(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
                     ),
                   ),
                 ],
@@ -119,54 +120,74 @@ class _WheelPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
-    final rect = Rect.fromCircle(center: center, radius: radius - 2);
+    final wheelRadius = radius * 0.88;
+    final wheelRect = Rect.fromCircle(center: center, radius: wheelRadius);
     final slices = wheel.items;
+    final isDark = brightness == Brightness.dark;
+
+    _drawOuterRing(canvas, center, radius, isDark);
+
     if (slices.isEmpty) {
-      final paint = Paint()
-        ..color = Colors.grey.withValues(alpha: 0.2)
-        ..style = PaintingStyle.fill;
-      canvas.drawCircle(center, radius, paint);
+      final paint = Paint()..color = Colors.grey.withValues(alpha: 0.22);
+      canvas.drawCircle(center, wheelRadius, paint);
       return;
     }
 
     final palette = wheelPalettes(brightness)[wheel.palette] ?? wheelPalettes(brightness)['ocean']!;
     final wedge = (2 * pi) / slices.length;
-    final dividerPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.75)
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
 
     for (var i = 0; i < slices.length; i++) {
       final item = slices[i];
       final start = (-pi / 2) + rotation + (i * wedge);
-      final color = parseHexColor(item.colorHex) ?? palette[i % palette.length];
-      final paint = Paint()..color = color;
-      canvas.drawArc(rect, start, wedge, true, paint);
+      final base = parseHexColor(item.colorHex) ?? palette[i % palette.length];
+      final sliceGradient = SweepGradient(
+        startAngle: start,
+        endAngle: start + wedge,
+        colors: [
+          Color.lerp(base, Colors.white, isDark ? 0.08 : 0.18)!,
+          Color.lerp(base, Colors.black, isDark ? 0.22 : 0.12)!,
+        ],
+      );
+      final paint = Paint()..shader = sliceGradient.createShader(wheelRect);
+      canvas.drawArc(wheelRect, start, wedge, true, paint);
+
+      final gloss = Paint()
+        ..color = Colors.white.withValues(alpha: isDark ? 0.03 : 0.08)
+        ..style = PaintingStyle.fill;
+      canvas.drawArc(wheelRect, start, wedge, true, gloss);
 
       if (winnerItemId != null && winnerItemId == item.id) {
         final highlight = Paint()
-          ..color = Colors.white.withValues(alpha: brightness == Brightness.dark ? 0.14 : 0.24);
-        canvas.drawArc(rect, start, wedge, true, highlight);
+          ..color = Colors.white.withValues(alpha: isDark ? 0.14 : 0.28);
+        canvas.drawArc(wheelRect, start, wedge, true, highlight);
       }
 
       final labelAngle = start + (wedge / 2);
       final labelOffset = Offset(
-        center.dx + cos(labelAngle) * radius * 0.62,
-        center.dy + sin(labelAngle) * radius * 0.62,
+        center.dx + cos(labelAngle) * wheelRadius * 0.63,
+        center.dy + sin(labelAngle) * wheelRadius * 0.63,
       );
-      final text = item.title.length > 12 ? '${item.title.substring(0, 12)}…' : item.title;
+      final text = item.title.length > 14 ? '${item.title.substring(0, 14)}…' : item.title;
       final textPainter = TextPainter(
         text: TextSpan(
           text: text,
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.95),
-            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.96),
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.2,
             fontSize: 12,
+            shadows: [
+              Shadow(
+                blurRadius: 8,
+                color: Colors.black.withValues(alpha: 0.45),
+                offset: const Offset(0, 1),
+              ),
+            ],
           ),
         ),
         textDirection: TextDirection.ltr,
         maxLines: 1,
-      )..layout(maxWidth: radius * 0.52);
+      )..layout(maxWidth: wheelRadius * 0.56);
       canvas.save();
       canvas.translate(labelOffset.dx, labelOffset.dy);
       canvas.rotate(labelAngle + pi / 2);
@@ -174,28 +195,70 @@ class _WheelPainter extends CustomPainter {
       canvas.restore();
     }
 
+    final dividerPaint = Paint()
+      ..color = Colors.white.withValues(alpha: isDark ? 0.3 : 0.65)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    for (var i = 0; i < slices.length; i++) {
+      final angle = (-pi / 2) + rotation + (i * wedge);
+      final p1 = Offset(center.dx + cos(angle) * 0, center.dy + sin(angle) * 0);
+      final p2 = Offset(center.dx + cos(angle) * wheelRadius, center.dy + sin(angle) * wheelRadius);
+      canvas.drawLine(p1, p2, dividerPaint);
+    }
+
     canvas.drawCircle(
       center,
-      radius - 1,
+      wheelRadius,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.6
+        ..color = Colors.white.withValues(alpha: isDark ? 0.35 : 0.82),
+    );
+    _drawCenterHub(canvas, center, wheelRadius, isDark);
+  }
+
+  void _drawOuterRing(Canvas canvas, Offset center, double radius, bool isDark) {
+    final ringRect = Rect.fromCircle(center: center, radius: radius * 0.94);
+    final ringPaint = Paint()
+      ..shader = SweepGradient(
+        colors: isDark
+            ? const [Color(0xFF2A2F41), Color(0xFF1A1E2B), Color(0xFF31374A), Color(0xFF2A2F41)]
+            : const [Color(0xFFF8FAFF), Color(0xFFDFE7FF), Color(0xFFF4F7FF), Color(0xFFF8FAFF)],
+      ).createShader(ringRect);
+    canvas.drawCircle(center, radius * 0.94, ringPaint);
+    canvas.drawCircle(
+      center,
+      radius * 0.93,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = Colors.white.withValues(alpha: 0.9),
+        ..color = isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.06),
     );
+  }
+
+  void _drawCenterHub(Canvas canvas, Offset center, double wheelRadius, bool isDark) {
+    final hubRadius = wheelRadius * 0.14;
+    final hubRect = Rect.fromCircle(center: center, radius: hubRadius);
+    final hub = Paint()
+      ..shader = RadialGradient(
+        colors: isDark
+            ? const [Color(0xFF3B425A), Color(0xFF1D2131)]
+            : const [Color(0xFFFFFFFF), Color(0xFFD7E0FF)],
+      ).createShader(hubRect);
+    canvas.drawCircle(center, hubRadius, hub);
     canvas.drawCircle(
       center,
-      radius * 0.12,
-      Paint()..color = Colors.white.withValues(alpha: 0.95),
-    );
-    canvas.drawCircle(
-      center,
-      radius * 0.12,
+      hubRadius,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..color = Colors.black.withValues(alpha: 0.15),
+        ..strokeWidth = 1.6
+        ..color = isDark ? Colors.white.withValues(alpha: 0.2) : Colors.black.withValues(alpha: 0.1),
     );
-    canvas.drawArc(rect, -pi / 2, 2 * pi, false, dividerPaint);
+    canvas.drawCircle(
+      center,
+      hubRadius * 0.36,
+      Paint()..color = isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
+    );
   }
 
   @override
@@ -204,5 +267,35 @@ class _WheelPainter extends CustomPainter {
         oldDelegate.wheel != wheel ||
         oldDelegate.winnerItemId != winnerItemId ||
         oldDelegate.brightness != brightness;
+  }
+}
+
+class _PointerPainter extends CustomPainter {
+  const _PointerPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(size.width / 2, size.height)
+      ..lineTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..close();
+    canvas.drawShadow(path, Colors.black.withValues(alpha: 0.3), 5, true);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [color.withValues(alpha: 0.95), color.withValues(alpha: 0.75)],
+        ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _PointerPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }

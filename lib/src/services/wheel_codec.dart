@@ -292,14 +292,7 @@ class WheelCodec {
     required int line,
     required List<WheelImportError> errors,
   }) {
-    final known = <String>{
-      'subtitle',
-      'site',
-      'tags',
-      'note',
-      'color',
-      'weight',
-    };
+    const coreKnown = <String>{'subtitle', 'tags', 'note', 'color', 'weight'};
 
     final subtitle = _normalizeNullable(values['subtitle'] ?? values['site'] ?? '');
     final tags = _normalizeNullable(values['tags'] ?? '');
@@ -330,10 +323,14 @@ class WheelCodec {
       }
     }
 
-    final unknownEntries = values.entries.where((entry) => !known.contains(entry.key)).toList();
-    if (unknownEntries.isNotEmpty) {
-      final merged = unknownEntries.map((entry) => '${entry.key}:${entry.value}').join('; ');
-      note = _appendNote(note, merged);
+    final customFields = <String, String>{};
+    for (final entry in values.entries) {
+      if (!coreKnown.contains(entry.key)) {
+        final cleanedValue = entry.value.trim();
+        if (cleanedValue.isNotEmpty) {
+          customFields[entry.key] = cleanedValue;
+        }
+      }
     }
 
     return WheelItemModel(
@@ -346,6 +343,7 @@ class WheelCodec {
       note: note,
       colorHex: colorHex,
       weight: weight,
+      customFields: customFields,
     );
   }
 
