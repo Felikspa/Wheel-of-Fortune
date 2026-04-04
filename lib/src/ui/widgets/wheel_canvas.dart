@@ -381,6 +381,8 @@ class _WheelPainter extends CustomPainter {
           candidate: current,
           isDark: isDark,
           fallbackHueSeed: (fallbackIndex * 41 + wheel.id) % 360,
+          minHue: palette == 'pink' ? 282 : null,
+          maxHue: palette == 'pink' ? 344 : null,
         );
       }
       resolved.add(current);
@@ -414,7 +416,7 @@ class _WheelPainter extends CustomPainter {
       final anchorHsl = HSLColor.fromColor(anchor);
       final hue = switch (palette) {
         'ocean' => _wrapHue(185 + rng.nextDouble() * 70 + (i * 9)),
-        'pink' => _wrapHue(296 + rng.nextDouble() * 48 + (i * 11)),
+        'pink' => _pinkHue(i, rng),
         'mint' => _wrapHue(
           anchorHsl.hue + (rng.nextDouble() - 0.5) * 42 + (i * 13),
         ),
@@ -476,6 +478,8 @@ class _WheelPainter extends CustomPainter {
           candidate: color,
           isDark: isDark,
           fallbackHueSeed: hue,
+          minHue: palette == 'pink' ? 282 : null,
+          maxHue: palette == 'pink' ? 344 : null,
         );
       }
       colors.add(color);
@@ -488,6 +492,8 @@ class _WheelPainter extends CustomPainter {
     required Color candidate,
     required bool isDark,
     required double fallbackHueSeed,
+    double? minHue,
+    double? maxHue,
   }) {
     if (_contrastRatio(previous, candidate) >= 1.35) {
       return candidate;
@@ -498,9 +504,13 @@ class _WheelPainter extends CustomPainter {
       final sign = i.isEven ? 1 : -1;
       final hueShift = (i + 1) * 14 * sign;
       final lightShift = (i.isEven ? 0.1 : -0.1);
+      final shiftedHue = _wrapHue(hsl.hue + hueShift);
+      final adjustedHue = (minHue != null && maxHue != null)
+          ? shiftedHue.clamp(minHue, maxHue).toDouble()
+          : shiftedHue;
       final next = HSLColor.fromAHSL(
         1,
-        (hsl.hue + hueShift) % 360,
+        adjustedHue,
         (hsl.saturation + (isDark ? 0.03 : 0.02)).clamp(0.1, 0.95),
         (hsl.lightness + lightShift).clamp(0.2, 0.82),
       ).toColor();
@@ -509,9 +519,12 @@ class _WheelPainter extends CustomPainter {
       }
     }
 
+    final fallbackHue = (minHue != null && maxHue != null)
+        ? _wrapHue(fallbackHueSeed).clamp(minHue, maxHue).toDouble()
+        : (fallbackHueSeed + 160) % 360;
     final fallback = HSLColor.fromAHSL(
       1,
-      (fallbackHueSeed + 160) % 360,
+      fallbackHue,
       isDark ? 0.8 : 0.72,
       isDark ? 0.62 : 0.35,
     ).toColor();
@@ -529,6 +542,12 @@ class _WheelPainter extends CustomPainter {
   double _wrapHue(double hue) {
     final wrapped = hue % 360;
     return wrapped < 0 ? wrapped + 360 : wrapped;
+  }
+
+  double _pinkHue(int index, Random rng) {
+    const offsets = [-20.0, -12.0, -6.0, 0.0, 6.0, 12.0, 18.0, 24.0];
+    final base = 316 + offsets[index % offsets.length];
+    return (base + (rng.nextDouble() - 0.5) * 10).clamp(282, 344).toDouble();
   }
 
   @override
