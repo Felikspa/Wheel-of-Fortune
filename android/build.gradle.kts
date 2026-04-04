@@ -26,6 +26,7 @@ subprojects {
         if (name == "isar_flutter_libs") {
             extensions.configure<LibraryExtension> {
                 namespace = "dev.isar.flutter_libs"
+                compileSdk = 35
             }
         }
     }
