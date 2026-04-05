@@ -251,7 +251,6 @@ class _WheelDrawer extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primary = accentColor;
-    final drawerTextColor = isDark ? Colors.white : Colors.black;
     final width = min(MediaQuery.of(context).size.width * 0.84, 330.0);
     return Drawer(
       width: width,
@@ -278,17 +277,17 @@ class _WheelDrawer extends StatelessWidget {
                             const Color(0xFF0A0F19).withValues(alpha: 0.58),
                           ]
                         : [
-                            const Color(0xFF1A2233).withValues(alpha: 0.5),
-                            const Color(0xFF131A28).withValues(alpha: 0.46),
+                            const Color(0xFFF8FBFF).withValues(alpha: 0.84),
+                            const Color(0xFFEFF4FF).withValues(alpha: 0.8),
                           ],
                   ),
                   border: Border.all(
-                    color: primary.withValues(alpha: isDark ? 0.28 : 0.24),
+                    color: primary.withValues(alpha: isDark ? 0.28 : 0.18),
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(
-                        alpha: isDark ? 0.36 : 0.24,
+                        alpha: isDark ? 0.36 : 0.14,
                       ),
                       blurRadius: 26,
                       offset: const Offset(0, 12),
@@ -306,7 +305,6 @@ class _WheelDrawer extends StatelessWidget {
                             modeLabel: modeLabel,
                             accentColor: primary,
                             isDark: isDark,
-                            textColor: drawerTextColor,
                             onChanged: (mode) async {
                               await onSelectMode(mode);
                               if (context.mounted) {
@@ -323,26 +321,19 @@ class _WheelDrawer extends StatelessWidget {
                                   title,
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w700,
-                                    color: drawerTextColor,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   '${wheels.length}',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: drawerTextColor,
-                                  ),
+                                  style: theme.textTheme.bodySmall,
                                 ),
                               ],
                             ),
                           ),
                           IconButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            icon: Icon(
-                              Icons.close_rounded,
-                              size: 19,
-                              color: drawerTextColor,
-                            ),
+                            icon: const Icon(Icons.close_rounded, size: 19),
                             visualDensity: VisualDensity.compact,
                           ),
                         ],
@@ -357,9 +348,7 @@ class _WheelDrawer extends StatelessWidget {
                                 child: Text(
                                   emptyLabel,
                                   textAlign: TextAlign.center,
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: drawerTextColor,
-                                  ),
+                                  style: theme.textTheme.bodyMedium,
                                 ),
                               ),
                             )
@@ -380,7 +369,6 @@ class _WheelDrawer extends StatelessWidget {
                                   wheel: wheel,
                                   selected: selected,
                                   accentColor: primary,
-                                  textColor: drawerTextColor,
                                   onTap: () {
                                     onSelectWheel(wheel.id);
                                     Navigator.of(context).pop();
@@ -406,7 +394,6 @@ class _ModeDropdown extends StatelessWidget {
     required this.modeLabel,
     required this.accentColor,
     required this.isDark,
-    required this.textColor,
     required this.onChanged,
   });
 
@@ -414,7 +401,6 @@ class _ModeDropdown extends StatelessWidget {
   final String modeLabel;
   final Color accentColor;
   final bool isDark;
-  final Color textColor;
   final Future<void> Function(DrawDisplayMode mode) onChanged;
 
   @override
@@ -427,7 +413,7 @@ class _ModeDropdown extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
         color: isDark
             ? const Color(0xFF0E1420).withValues(alpha: 0.54)
-            : const Color(0xFF141D2C).withValues(alpha: 0.42),
+            : const Color(0xFFF2F7FF).withValues(alpha: 0.72),
         border: Border.all(
           color: accentColor.withValues(alpha: isDark ? 0.34 : 0.28),
         ),
@@ -447,37 +433,23 @@ class _ModeDropdown extends StatelessWidget {
               color: accentColor,
               size: 18,
             ),
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: textColor),
+            style: Theme.of(context).textTheme.labelMedium,
             items: [
               DropdownMenuItem(
                 value: DrawDisplayMode.wheel,
-                child: Text(
-                  '$modeLabel: ${l10n.displayModeWheel}',
-                  style: TextStyle(color: textColor),
-                ),
+                child: Text('$modeLabel: ${l10n.displayModeWheel}'),
               ),
               DropdownMenuItem(
                 value: DrawDisplayMode.coin,
-                child: Text(
-                  '$modeLabel: ${l10n.displayModeCoin}',
-                  style: TextStyle(color: textColor),
-                ),
+                child: Text('$modeLabel: ${l10n.displayModeCoin}'),
               ),
               DropdownMenuItem(
                 value: DrawDisplayMode.dice,
-                child: Text(
-                  '$modeLabel: ${l10n.displayModeDice}',
-                  style: TextStyle(color: textColor),
-                ),
+                child: Text('$modeLabel: ${l10n.displayModeDice}'),
               ),
               DropdownMenuItem(
                 value: DrawDisplayMode.card,
-                child: Text(
-                  '$modeLabel: ${l10n.displayModeCard}',
-                  style: TextStyle(color: textColor),
-                ),
+                child: Text('$modeLabel: ${l10n.displayModeCard}'),
               ),
             ],
             onChanged: (value) {
@@ -498,14 +470,12 @@ class _WheelDrawerTile extends StatelessWidget {
     required this.wheel,
     required this.selected,
     required this.accentColor,
-    required this.textColor,
     required this.onTap,
   });
 
   final WheelModel wheel;
   final bool selected;
   final Color accentColor;
-  final Color textColor;
   final VoidCallback onTap;
 
   @override
@@ -545,8 +515,8 @@ class _WheelDrawerTile extends StatelessWidget {
                             const Color(0xFF0F1622).withValues(alpha: 0.42),
                           ]
                         : [
-                            const Color(0xFF1A2231).withValues(alpha: 0.34),
-                            const Color(0xFF141C2B).withValues(alpha: 0.28),
+                            Colors.white.withValues(alpha: 0.56),
+                            const Color(0xFFEFF4FF).withValues(alpha: 0.48),
                           ],
                   ),
             border: Border.all(
@@ -575,7 +545,6 @@ class _WheelDrawerTile extends StatelessWidget {
                   '${wheel.items.length}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: textColor,
                   ),
                 ),
               ),
@@ -587,7 +556,6 @@ class _WheelDrawerTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: textColor,
                   ),
                 ),
               ),
