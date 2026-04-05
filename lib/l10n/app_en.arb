@@ -23,6 +23,7 @@
   "probabilityMode": "Probability Mode",
   "modeEqual": "Equal",
   "modeWeighted": "Weighted",
+  "modeSoftAntiRepeat": "Soft Anti-Repeat",
   "spinDuration": "Spin Duration",
   "secondsShort": "{seconds}s",
   "@secondsShort": {

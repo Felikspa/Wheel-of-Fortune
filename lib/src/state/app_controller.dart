@@ -34,14 +34,15 @@ class QuickItemsImportSummary {
 class AppController extends ChangeNotifier {
   static const minItemsPerWheel = 2;
   static const maxItemsPerWheel = 100;
+  static const softModeWindowSize = 8;
 
   AppController({
     required WheelRepository repository,
     SpinEngine? spinEngine,
     WheelCodec? wheelCodec,
-  })  : _repository = repository,
-        _spinEngine = spinEngine ?? SpinEngine(),
-        _wheelCodec = wheelCodec ?? WheelCodec();
+  }) : _repository = repository,
+       _spinEngine = spinEngine ?? SpinEngine(),
+       _wheelCodec = wheelCodec ?? WheelCodec();
 
   final WheelRepository _repository;
   final SpinEngine _spinEngine;
@@ -53,6 +54,7 @@ class AppController extends ChangeNotifier {
   int? _selectedWheelId;
   int? _winnerItemId;
   AppSettingsModel _settings = const AppSettingsModel();
+  final Map<int, List<int>> _recentWinnerIdsByWheel = {};
 
   bool get loading => _loading;
   bool get spinning => _spinning;
@@ -129,6 +131,7 @@ class AppController extends ChangeNotifier {
 
   Future<void> deleteWheel(int wheelId) async {
     await _repository.deleteWheel(wheelId);
+    _recentWinnerIdsByWheel.remove(wheelId);
     if (_selectedWheelId == wheelId) {
       _winnerItemId = null;
     }
@@ -149,10 +152,7 @@ class AppController extends ChangeNotifier {
     final capped = items.take(maxItemsPerWheel).toList();
     final normalized = [
       for (var i = 0; i < capped.length; i++)
-        capped[i].copyWith(
-          wheelId: wheel.id,
-          order: i,
-        ),
+        capped[i].copyWith(wheelId: wheel.id, order: i),
     ];
     await _repository.saveItems(wheel.id, normalized);
     await _reloadWheels();
@@ -163,7 +163,10 @@ class AppController extends ChangeNotifier {
     if (wheel == null || wheel.items.length >= maxItemsPerWheel) {
       return;
     }
-    final updated = [...wheel.items, item.copyWith(wheelId: wheel.id, order: wheel.items.length)];
+    final updated = [
+      ...wheel.items,
+      item.copyWith(wheelId: wheel.id, order: wheel.items.length),
+    ];
     await saveCurrentWheelItems(updated);
   }
 
@@ -172,7 +175,9 @@ class AppController extends ChangeNotifier {
     if (wheel == null) {
       return;
     }
-    final updated = wheel.items.map((entry) => entry.id == item.id ? item : entry).toList();
+    final updated = wheel.items
+        .map((entry) => entry.id == item.id ? item : entry)
+        .toList();
     await saveCurrentWheelItems(updated);
   }
 
@@ -215,7 +220,11 @@ class AppController extends ChangeNotifier {
     }
     _spinning = true;
     _winnerItemId = null;
-    final result = _spinEngine.spin(wheel.items, wheel.probabilityMode);
+    final result = _spinEngine.spin(
+      wheel.items,
+      wheel.probabilityMode,
+      recentWinnerItemIds: _recentWinnerIdsByWheel[wheel.id] ?? const [],
+    );
     notifyListeners();
     return result;
   }
@@ -223,6 +232,17 @@ class AppController extends ChangeNotifier {
   void finishSpin(SpinOutcome outcome) {
     _spinning = false;
     _winnerItemId = outcome.winnerItemId;
+    final wheelId = _selectedWheelId;
+    if (wheelId != null) {
+      final history = [
+        ...?_recentWinnerIdsByWheel[wheelId],
+        outcome.winnerItemId,
+      ];
+      if (history.length > softModeWindowSize) {
+        history.removeRange(0, history.length - softModeWindowSize);
+      }
+      _recentWinnerIdsByWheel[wheelId] = history;
+    }
     notifyListeners();
   }
 
@@ -237,7 +257,11 @@ class AppController extends ChangeNotifier {
   Future<ImportSummary> importFromCode(String text) async {
     final parsed = _wheelCodec.importWheel(text);
     if (parsed.items.isEmpty) {
-      return ImportSummary(created: false, validItems: 0, errors: parsed.errors);
+      return ImportSummary(
+        created: false,
+        validItems: 0,
+        errors: parsed.errors,
+      );
     }
     final created = await _repository.createWheel(parsed.name);
     final configured = created.copyWith(
@@ -247,31 +271,39 @@ class AppController extends ChangeNotifier {
       updatedAt: DateTime.now(),
     );
     await _repository.saveWheel(configured);
-    await _repository.saveItems(
-      created.id,
-      [
-        for (var i = 0; i < parsed.items.take(maxItemsPerWheel).length; i++)
-          parsed.items[i].copyWith(
-            wheelId: created.id,
-            order: i,
-          ),
-      ],
-    );
+    await _repository.saveItems(created.id, [
+      for (var i = 0; i < parsed.items.take(maxItemsPerWheel).length; i++)
+        parsed.items[i].copyWith(wheelId: created.id, order: i),
+    ]);
     await _reloadWheels(notify: false);
     _selectedWheelId = created.id;
     notifyListeners();
-    return ImportSummary(created: true, validItems: parsed.items.length, errors: parsed.errors);
+    return ImportSummary(
+      created: true,
+      validItems: parsed.items.length,
+      errors: parsed.errors,
+    );
   }
 
-  Future<QuickItemsImportSummary> quickImportItemsToCurrentWheel(String text) async {
+  Future<QuickItemsImportSummary> quickImportItemsToCurrentWheel(
+    String text,
+  ) async {
     final wheel = selectedWheel;
     if (wheel == null) {
-      return const QuickItemsImportSummary(importedItems: 0, skippedByLimit: 0, errors: []);
+      return const QuickItemsImportSummary(
+        importedItems: 0,
+        skippedByLimit: 0,
+        errors: [],
+      );
     }
 
     final parsed = _wheelCodec.importQuickItems(text);
     if (parsed.items.isEmpty) {
-      return QuickItemsImportSummary(importedItems: 0, skippedByLimit: 0, errors: parsed.errors);
+      return QuickItemsImportSummary(
+        importedItems: 0,
+        skippedByLimit: 0,
+        errors: parsed.errors,
+      );
     }
 
     final allowed = maxItemsPerWheel - wheel.items.length;
@@ -325,13 +357,10 @@ class AppController extends ChangeNotifier {
     _wheels = await _repository.loadWheels();
     if (_wheels.isEmpty && createDefaultIfEmpty) {
       final created = await _repository.createWheel('Wheel 1');
-      await _repository.saveItems(
-        created.id,
-        const [
-          WheelItemModel(id: 0, wheelId: 0, order: 0, title: 'Option A'),
-          WheelItemModel(id: 0, wheelId: 0, order: 1, title: 'Option B'),
-        ],
-      );
+      await _repository.saveItems(created.id, const [
+        WheelItemModel(id: 0, wheelId: 0, order: 0, title: 'Option A'),
+        WheelItemModel(id: 0, wheelId: 0, order: 1, title: 'Option B'),
+      ]);
       _wheels = await _repository.loadWheels();
     }
 

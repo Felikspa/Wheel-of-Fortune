@@ -23,6 +23,7 @@
   "probabilityMode": "概率模式",
   "modeEqual": "等概率",
   "modeWeighted": "权重",
+  "modeSoftAntiRepeat": "平滑去重",
   "spinDuration": "转动时长",
   "secondsShort": "{seconds}秒",
   "@secondsShort": {

@@ -138,9 +138,11 @@ class WheelCodec {
     final name = headers['name']?.trim().isNotEmpty == true
         ? headers['name']!.trim()
         : 'Imported Wheel';
-    final mode = headers['mode'] == 'weighted'
-        ? ProbabilityMode.weighted
-        : ProbabilityMode.equal;
+    final mode = switch (headers['mode']?.toLowerCase()) {
+      'weighted' => ProbabilityMode.weighted,
+      'softantirepeat' => ProbabilityMode.softAntiRepeat,
+      _ => ProbabilityMode.equal,
+    };
     final spinDuration = int.tryParse(headers['spindurationms'] ?? '') ?? 4800;
     final palette = _resolvePalette(headers['palette']);
 

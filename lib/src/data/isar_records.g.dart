@@ -137,10 +137,12 @@ P _wheelRecordDeserializeProp<P>(
 const _WheelRecordprobabilityModeEnumValueMap = {
   r'equal': r'equal',
   r'weighted': r'weighted',
+  r'softAntiRepeat': r'softAntiRepeat',
 };
 const _WheelRecordprobabilityModeValueEnumMap = {
   r'equal': ProbabilityMode.equal,
   r'weighted': ProbabilityMode.weighted,
+  r'softAntiRepeat': ProbabilityMode.softAntiRepeat,
 };
 
 Id _wheelRecordGetId(WheelRecord object) {

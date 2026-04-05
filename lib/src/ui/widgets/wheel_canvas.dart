@@ -131,16 +131,40 @@ class _WheelPainter extends CustomPainter {
 
     final sliceColors = _buildSliceColors(slices, wheel.palette, isDark);
     final wedge = (2 * pi) / slices.length;
+    final materialSheenPaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(-0.28, -0.34),
+        radius: 1.04,
+        colors: [
+          Colors.white.withValues(alpha: isDark ? 0.08 : 0.16),
+          Colors.white.withValues(alpha: isDark ? 0.02 : 0.06),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(wheelRect);
+    final depthPaint = Paint()
+      ..shader = RadialGradient(
+        center: const Alignment(0.32, 0.34),
+        radius: 1.08,
+        colors: [
+          Colors.transparent,
+          Colors.black.withValues(alpha: isDark ? 0.07 : 0.05),
+        ],
+        stops: const [0.58, 1.0],
+      ).createShader(wheelRect);
 
     for (var i = 0; i < slices.length; i++) {
       final item = slices[i];
       final start = (-pi / 2) + rotation + (i * wedge);
       final base = sliceColors[i];
-      final paint = Paint()..color = base;
+      final paint = Paint()
+        ..color = base.withValues(alpha: isDark ? 0.72 : 0.66);
       canvas.drawArc(wheelRect, start, wedge, true, paint);
+      canvas.drawArc(wheelRect, start, wedge, true, materialSheenPaint);
+      canvas.drawArc(wheelRect, start, wedge, true, depthPaint);
 
       final gloss = Paint()
-        ..color = Colors.white.withValues(alpha: isDark ? 0.03 : 0.08)
+        ..color = Colors.white.withValues(alpha: isDark ? 0.015 : 0.04)
         ..style = PaintingStyle.fill;
       canvas.drawArc(wheelRect, start, wedge, true, gloss);
 
@@ -193,7 +217,7 @@ class _WheelPainter extends CustomPainter {
     }
 
     final dividerPaint = Paint()
-      ..color = Colors.white.withValues(alpha: isDark ? 0.3 : 0.65)
+      ..color = Colors.white.withValues(alpha: isDark ? 0.24 : 0.56)
       ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
     for (var i = 0; i < slices.length; i++) {
@@ -212,7 +236,7 @@ class _WheelPainter extends CustomPainter {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2.6
-        ..color = Colors.white.withValues(alpha: isDark ? 0.35 : 0.82),
+        ..color = Colors.white.withValues(alpha: isDark ? 0.3 : 0.74),
     );
     _drawCenterHub(canvas, center, wheelRadius, isDark, hubAccentColor);
     _drawMiniPointer(

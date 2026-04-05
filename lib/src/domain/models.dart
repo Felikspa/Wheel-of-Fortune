@@ -1,4 +1,4 @@
-enum ProbabilityMode { equal, weighted }
+enum ProbabilityMode { equal, weighted, softAntiRepeat }
 
 enum AppThemeMode { system, light, dark }
 
@@ -99,7 +99,10 @@ class WheelModel {
 }
 
 class AppSettingsModel {
-  const AppSettingsModel({this.localeOverride, this.themeMode = AppThemeMode.system});
+  const AppSettingsModel({
+    this.localeOverride,
+    this.themeMode = AppThemeMode.system,
+  });
 
   final String? localeOverride;
   final AppThemeMode themeMode;

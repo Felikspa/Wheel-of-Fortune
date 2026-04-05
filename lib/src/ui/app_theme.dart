@@ -19,14 +19,18 @@ ThemeData buildLightTheme() {
     useMaterial3: true,
     platform: TargetPlatform.iOS,
     colorScheme: scheme,
-    scaffoldBackgroundColor: const Color(0xFFF2F3F7),
+    scaffoldBackgroundColor: const Color(0xFFF3F5FA),
     cardTheme: CardThemeData(
-      color: Colors.white.withValues(alpha: 0.9),
-      elevation: 0.5,
+      color: Colors.white.withValues(alpha: 0.7),
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.55)),
+      ),
     ),
-    dividerTheme: DividerThemeData(color: Colors.black.withValues(alpha: 0.06)),
+    dividerTheme: DividerThemeData(color: Colors.black.withValues(alpha: 0.08)),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -35,16 +39,20 @@ ThemeData buildLightTheme() {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size(0, 52),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(0, 50),
+        backgroundColor: Colors.white.withValues(alpha: 0.4),
+        side: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide(color: Colors.black.withValues(alpha: 0.08)),
@@ -58,7 +66,7 @@ ThemeData buildLightTheme() {
         borderSide: const BorderSide(color: Color(0xFF007AFF), width: 1.2),
       ),
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.95),
+      fillColor: Colors.white.withValues(alpha: 0.68),
     ),
   );
 }
@@ -74,12 +82,16 @@ ThemeData buildDarkTheme() {
     colorScheme: scheme,
     scaffoldBackgroundColor: const Color(0xFF0B0C10),
     cardTheme: CardThemeData(
-      color: const Color(0xFF171921).withValues(alpha: 0.92),
+      color: const Color(0xFF171921).withValues(alpha: 0.72),
+      surfaceTintColor: Colors.transparent,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(22),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+      ),
     ),
-    dividerTheme: DividerThemeData(color: Colors.white.withValues(alpha: 0.08)),
+    dividerTheme: DividerThemeData(color: Colors.white.withValues(alpha: 0.1)),
     snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -88,16 +100,20 @@ ThemeData buildDarkTheme() {
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
         minimumSize: const Size(0, 52),
+        textStyle: const TextStyle(fontWeight: FontWeight.w600),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(0, 50),
+        backgroundColor: Colors.white.withValues(alpha: 0.06),
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.14)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
@@ -111,7 +127,7 @@ ThemeData buildDarkTheme() {
         borderSide: const BorderSide(color: Color(0xFF5AC8FA), width: 1.2),
       ),
       filled: true,
-      fillColor: const Color(0xFF13151A),
+      fillColor: const Color(0xFF13151A).withValues(alpha: 0.88),
     ),
   );
 }

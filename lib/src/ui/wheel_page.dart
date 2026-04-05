@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -145,9 +146,11 @@ class _WheelPageState extends State<WheelPage>
                   ),
                   _PillTag(
                     icon: Icons.tune_rounded,
-                    text: wheel.probabilityMode == ProbabilityMode.equal
-                        ? l10n.modeEqual
-                        : l10n.modeWeighted,
+                    text: switch (wheel.probabilityMode) {
+                      ProbabilityMode.equal => l10n.modeEqual,
+                      ProbabilityMode.weighted => l10n.modeWeighted,
+                      ProbabilityMode.softAntiRepeat => l10n.modeSoftAntiRepeat,
+                    },
                     accentColor: accentColor,
                   ),
                 ],
@@ -232,60 +235,86 @@ class _WheelPageState extends State<WheelPage>
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               const SizedBox(height: 8),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeOutCubic,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(22),
-                  color: Theme.of(context).cardTheme.color,
-                  border: Border.all(
-                    color: winner == null
-                        ? Theme.of(context).dividerTheme.color ??
-                              Colors.transparent
-                        : accentColor.withValues(alpha: isDark ? 0.65 : 0.45),
-                    width: winner == null ? 1 : 1.6,
-                  ),
-                ),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(22),
-                  onTap: winner == null
-                      ? null
-                      : () => _showItemDetails(context, winner),
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                l10n.result,
-                                style: Theme.of(context).textTheme.labelLarge,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isDark
+                            ? [
+                                const Color(0xFF1A1F2A).withValues(alpha: 0.74),
+                                const Color(0xFF131722).withValues(alpha: 0.7),
+                              ]
+                            : [
+                                Colors.white.withValues(alpha: 0.76),
+                                const Color(0xFFF8FAFF).withValues(alpha: 0.68),
+                              ],
+                      ),
+                      border: Border.all(
+                        color: winner == null
+                            ? Theme.of(context).dividerTheme.color ??
+                                  Colors.transparent
+                            : accentColor.withValues(
+                                alpha: isDark ? 0.6 : 0.42,
                               ),
-                              const SizedBox(height: 3),
-                              Text(
-                                winner?.title ?? l10n.noResultYet,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(fontWeight: FontWeight.w700),
+                        width: winner == null ? 1 : 1.5,
+                      ),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(22),
+                      onTap: winner == null
+                          ? null
+                          : () => _showItemDetails(context, winner),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    l10n.result,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge,
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    winner?.title ?? l10n.noResultYet,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w700),
+                                  ),
+                                  if (winner?.subtitle != null)
+                                    Text(
+                                      winner!.subtitle!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.bodySmall,
+                                    ),
+                                ],
                               ),
-                              if (winner?.subtitle != null)
-                                Text(
-                                  winner!.subtitle!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                            ],
-                          ),
+                            ),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              color: winner == null ? null : accentColor,
+                            ),
+                          ],
                         ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          color: winner == null ? null : accentColor,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -302,6 +331,7 @@ class _WheelPageState extends State<WheelPage>
     AppController controller,
     WheelModel wheel,
   ) async {
+    final localeCode = Localizations.localeOf(context).languageCode;
     final outcome = controller.beginSpin();
     if (outcome == null) {
       return;
@@ -325,10 +355,7 @@ class _WheelPageState extends State<WheelPage>
     await _animationController.forward(from: 0);
     _baseRotation = (_baseRotation + delta) % (2 * pi);
     _rotation = _baseRotation;
-    _refreshFunHint(
-      localeCode: Localizations.localeOf(context).languageCode,
-      wheelId: wheel.id,
-    );
+    _refreshFunHint(localeCode: localeCode, wheelId: wheel.id);
     controller.finishSpin(outcome);
     HapticFeedback.lightImpact();
   }
@@ -467,7 +494,7 @@ class _WheelPageState extends State<WheelPage>
           alignment: Alignment.center,
           transform: Matrix4.identity()
             ..rotateZ(tilt)
-            ..scale(1.0, isDark ? 0.88 : 0.92),
+            ..multiply(Matrix4.diagonal3Values(1.0, isDark ? 0.88 : 0.92, 1.0)),
           child: Stack(
             alignment: Alignment.center,
             children: [
