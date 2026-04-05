@@ -81,10 +81,10 @@ class WheelUiTuning {
   static const double freeSpinFlickImpulseFactor = 1.22;
   static const double freeSpinBaseFriction = 4.0;
   static const double freeSpinNaturalVelocityFrictionGain = 0.24;
-  static const double freeSpinNaturalFrictionMax = 50.0;
-  static const double freeSpinBrakeFriction = 15.8;
-  static const double freeSpinBrakeVelocityFrictionGain = 1.00;
-  static const double freeSpinBrakeFrictionMax = 260.0;
+  static const double freeSpinNaturalFrictionMax = 1000.0;
+  static const double freeSpinBrakeFriction = 25;
+  static const double freeSpinBrakeVelocityFrictionGain = 1;
+  static const double freeSpinBrakeFrictionMax = 100000.0;
   static const double freeSpinStopVelocity = 0.16;
   static const int brakePressDelayMs = 150;
   static const int brakeHapticIntervalMs = 120;
@@ -108,9 +108,9 @@ class WheelUiTuning {
   static const double spinInstabilityTranslationAmpMaxFactor = 0.5;
   static const double spinInstabilityDecayRate = 14.0;
   static const double spinInstabilityHapticStartRpm = 500.0;
-  static const double spinInstabilityHapticRampRpm = 3600.0;
+  static const double spinInstabilityHapticRampRpm = 5600.0;
   static const double spinInstabilityHapticStrongIntensity = 0.56;
-  static const int spinInstabilityHapticMaxIntervalMs = 200;
+  static const int spinInstabilityHapticMaxIntervalMs = 300;
   static const int spinInstabilityHapticMinIntervalMs = 8;
   static const int spinInstabilityHapticContinuousIntervalMs = 8;
 }
