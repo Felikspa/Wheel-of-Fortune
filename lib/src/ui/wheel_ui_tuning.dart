@@ -78,15 +78,39 @@ class WheelUiTuning {
   static const double flickTangentialVelocityThreshold = 240;
   static const double freeSpinAngularVelocityClamp = 18.0;
   static const double freeSpinAngularVelocityMin = 3.6;
-  static const double freeSpinFlickImpulseFactor = 0.78;
+  static const double freeSpinFlickImpulseFactor = 1.22;
   static const double freeSpinBaseFriction = 4.0;
+  static const double freeSpinNaturalVelocityFrictionGain = 0.24;
+  static const double freeSpinNaturalFrictionMax = 50.0;
   static const double freeSpinBrakeFriction = 15.8;
+  static const double freeSpinBrakeVelocityFrictionGain = 1.00;
+  static const double freeSpinBrakeFrictionMax = 260.0;
   static const double freeSpinStopVelocity = 0.16;
   static const int brakePressDelayMs = 150;
   static const int brakeHapticIntervalMs = 120;
   static const double targetSpinBrakeSpeedScale = 2.15;
-  static const double targetSpinMinDurationSeconds = 0.9;
+  static const double targetSpinBrakeVelocityScaleGain = 0.24;
+  static const double targetSpinBrakeSpeedScaleMax = 12.0;
+  static const double targetSpinMinDurationSeconds = 0.18;
   static const double targetSpinMaxDurationSeconds = 12.0;
-  static const double targetSpinFlickAccelFactor = 0.68;
+  static const double targetSpinFlickAccelFactor = 1.08;
   static const double targetSpinFlickDecelFactor = 0.9;
+
+  // High-speed instability (wobble) simulation
+  static const double spinInstabilityStartRpm = 800.0;
+  static const double spinInstabilityRampRpm = 2200.0;
+  static const double spinInstabilityVisualHzBase = 1.0;
+  static const double spinInstabilityVisualHzGain = 20.0;
+  static const double spinInstabilityRotationAmpBase = 0.002;
+  static const double spinInstabilityRotationAmpGain = 0.048;
+  static const double spinInstabilityTranslationAmpBaseFactor = 0.001;
+  static const double spinInstabilityTranslationAmpGainFactor = 0.021;
+  static const double spinInstabilityTranslationAmpMaxFactor = 0.075;
+  static const double spinInstabilityVelocityNoiseBase = 0.001;
+  static const double spinInstabilityVelocityNoiseGain = 0.02;
+  static const double spinInstabilityDecayRate = 14.0;
+  static const double spinInstabilityHapticStartIntensity = 0.08;
+  static const double spinInstabilityHapticStrongIntensity = 0.62;
+  static const int spinInstabilityHapticMaxIntervalMs = 220;
+  static const int spinInstabilityHapticMinIntervalMs = 50;
 }

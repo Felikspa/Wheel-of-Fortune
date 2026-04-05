@@ -61,6 +61,8 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
   Duration? _edgeDownTime;
   Timer? _edgePressTimer;
   Timer? _brakeHapticTimer;
+  Timer? _instabilityHapticTimer;
+  double _instabilityHapticIntensity = 0;
   bool _edgeBrakeActive = false;
   bool _spinRunning = false;
   bool _spinTargeted = false;
@@ -76,6 +78,10 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
   double _targetSpinElapsedSec = 0;
   bool _showSpinSpeedHud = false;
   double _lastSpinSpeedRpm = 0;
+  double _spinInstabilityPhase = 0;
+  double _spinInstabilityRotationOffset = 0;
+  Offset _spinInstabilityTranslation = Offset.zero;
+  final Random _spinInstabilityRandom = Random();
 
   @override
   void initState() {
@@ -91,6 +97,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
   void dispose() {
     _edgePressTimer?.cancel();
     _brakeHapticTimer?.cancel();
+    _instabilityHapticTimer?.cancel();
     _spinTicker.dispose();
     _wheelTransformController.removeListener(_handleWheelTransformChanged);
     _wheelTransformController.dispose();
@@ -295,6 +302,23 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
+                  if (_showSpinSpeedHud)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Align(
+                          alignment: const Alignment(
+                            0,
+                            WheelUiTuning.wheelVerticalAlignmentY,
+                          ),
+                          child: Transform.translate(
+                            offset: Offset(0, -(wheelSize * 0.42)),
+                            child: _SpinSpeedHud(
+                              text: _spinSpeedHudLabel(context),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -318,13 +342,6 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
                                   _funHint ?? l10n.tapSliceForDetails,
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
-                                if (_showSpinSpeedHud) ...[
-                                  const SizedBox(height: 8),
-                                  _SpinSpeedHud(
-                                    text: _spinSpeedHudLabel(context),
-                                    accentColor: accentColor,
-                                  ),
-                                ],
                               ],
                             ),
                           ),
@@ -761,16 +778,13 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
         );
       }
       final tunedVelocity = sameDirection
-          ? (_spinAngularVelocity.abs() + impulse * 0.4)
+          ? (_spinAngularVelocity.abs() + impulse * 0.63)
           : max(0.0, _spinAngularVelocity.abs() - impulse * 0.45);
       _spinAngularVelocity = direction * tunedVelocity;
     } else {
       final absCurrent = _spinAngularVelocity.abs();
       final tuned = sameDirection
-          ? min(
-              WheelUiTuning.freeSpinAngularVelocityClamp,
-              absCurrent + impulse,
-            )
+          ? (absCurrent + impulse)
           : max(0.0, absCurrent - impulse);
       _spinAngularVelocity = direction * tuned;
     }
@@ -824,6 +838,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
       return;
     }
     _hideSpinSpeedHudForNextSpin();
+    _resetSpinInstability();
     var delta = outcome.targetDelta - _baseRotation;
     while (delta < WheelUiTuning.spinCompleteMinTurns * 2 * pi) {
       delta += 2 * pi;
@@ -856,6 +871,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
       return;
     }
     _hideSpinSpeedHudForNextSpin();
+    _resetSpinInstability();
     final outcome = controller.beginSpin();
     if (outcome == null) {
       return;
@@ -865,10 +881,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _spinRunning = true;
     _spinTargeted = false;
     _spinLastElapsed = Duration.zero;
-    _spinAngularVelocity = angularVelocity.clamp(
-      -WheelUiTuning.freeSpinAngularVelocityClamp,
-      WheelUiTuning.freeSpinAngularVelocityClamp,
-    );
+    _spinAngularVelocity = angularVelocity;
     if (_spinAngularVelocity.abs() < WheelUiTuning.freeSpinAngularVelocityMin) {
       _spinAngularVelocity =
           _spinAngularVelocity.sign * WheelUiTuning.freeSpinAngularVelocityMin;
@@ -904,7 +917,12 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
 
     if (_spinTargeted) {
       final speedScale = _edgeBrakeActive
-          ? WheelUiTuning.targetSpinBrakeSpeedScale
+          ? (WheelUiTuning.targetSpinBrakeSpeedScale +
+                    (_spinAngularVelocity.abs() *
+                            WheelUiTuning.targetSpinBrakeVelocityScaleGain)
+                        .clamp(0.0, WheelUiTuning.targetSpinBrakeSpeedScaleMax))
+                .clamp(1.0, WheelUiTuning.targetSpinBrakeSpeedScaleMax)
+                .toDouble()
           : 1.0;
       _targetSpinElapsedSec += dt * speedScale;
       final t = (_targetSpinElapsedSec / _targetSpinDurationSec).clamp(
@@ -916,6 +934,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
           _targetSpinStart + (_targetSpinEnd - _targetSpinStart) * eased;
       _spinAngularVelocity = (nextRotation - _rotation) / dt;
       _rotation = nextRotation;
+      _updateSpinInstability(dt: dt, allowVelocityNoise: false);
       _syncSpinSpeedHud();
       _cacheCurrentWheelViewportIfPossible();
       setState(() {});
@@ -925,14 +944,23 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
       return;
     }
 
+    _updateSpinInstability(dt: dt, allowVelocityNoise: true);
     final absVelocity = _spinAngularVelocity.abs();
     if (absVelocity <= 0.01) {
       _finalizeSpin(controller: controller);
       return;
     }
     final friction = _edgeBrakeActive
-        ? WheelUiTuning.freeSpinBrakeFriction
-        : WheelUiTuning.freeSpinBaseFriction;
+        ? min(
+            WheelUiTuning.freeSpinBrakeFrictionMax,
+            WheelUiTuning.freeSpinBrakeFriction +
+                absVelocity * WheelUiTuning.freeSpinBrakeVelocityFrictionGain,
+          )
+        : min(
+            WheelUiTuning.freeSpinNaturalFrictionMax,
+            WheelUiTuning.freeSpinBaseFriction +
+                absVelocity * WheelUiTuning.freeSpinNaturalVelocityFrictionGain,
+          );
     final nextAbsVelocity = max(0.0, absVelocity - friction * dt);
     final averageVelocity =
         _spinAngularVelocity.sign * ((absVelocity + nextAbsVelocity) * 0.5);
@@ -952,6 +980,9 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
       return;
     }
     _edgeBrakeActive = active;
+    if (active) {
+      _stopSpinInstabilityHaptics();
+    }
     _brakeHapticTimer?.cancel();
     if (active) {
       HapticFeedback.mediumImpact();
@@ -977,6 +1008,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _spinLastElapsed = Duration.zero;
     _spinAngularVelocity = 0;
     _syncSpinSpeedHud();
+    _resetSpinInstability();
     final normalized = _normalizeRotation(_rotation);
     _rotation = normalized;
     _baseRotation = normalized;
@@ -1045,6 +1077,8 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _spinLastElapsed = Duration.zero;
     _spinAngularVelocity = 0;
     _syncSpinSpeedHud();
+    _resetSpinInstability();
+    _cacheCurrentWheelViewportIfPossible();
   }
 
   void _resetEdgePointerTracking() {
@@ -1231,10 +1265,10 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     final matrix = _wheelTransformController.value;
     controller.cacheWheelViewportState(
       wheelId: wheelId,
-      rotation: _normalizeRotation(_rotation),
+      rotation: _normalizeRotation(_rotation + _spinInstabilityRotationOffset),
       scale: _wheelDetailScale,
-      translateX: matrix.entry(0, 3),
-      translateY: matrix.entry(1, 3),
+      translateX: matrix.entry(0, 3) + _spinInstabilityTranslation.dx,
+      translateY: matrix.entry(1, 3) + _spinInstabilityTranslation.dy,
       glowAx: _glowAlignmentA.x + _glowJitterA.dx,
       glowAy: _glowAlignmentA.y + _glowJitterA.dy,
       glowBx: _glowAlignmentB.x + _glowJitterB.dx,
@@ -1278,6 +1312,157 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _hintSeed = seedBase ^ 0x9E3779B9;
   }
 
+  void _updateSpinInstability({
+    required double dt,
+    required bool allowVelocityNoise,
+  }) {
+    final rpm = _currentSpinSpeedRpm;
+    final overflow = rpm - WheelUiTuning.spinInstabilityStartRpm;
+    if (overflow <= 0) {
+      _decaySpinInstability(dt);
+      return;
+    }
+    final ramp = WheelUiTuning.spinInstabilityRampRpm;
+    final progress = (overflow / ramp).clamp(0.0, 1.0).toDouble();
+    final baseIntensity = progress * progress * (3 - 2 * progress);
+    final extraIntensity = max(0.0, (overflow - ramp) / ramp) * 0.35;
+    final intensity = (baseIntensity + extraIntensity)
+        .clamp(0.0, 2.6)
+        .toDouble();
+    _syncSpinInstabilityHaptics(intensity);
+
+    final freqHz =
+        WheelUiTuning.spinInstabilityVisualHzBase +
+        intensity * WheelUiTuning.spinInstabilityVisualHzGain;
+    _spinInstabilityPhase += dt * freqHz * 2 * pi;
+
+    final rotationAmp =
+        WheelUiTuning.spinInstabilityRotationAmpBase +
+        intensity * WheelUiTuning.spinInstabilityRotationAmpGain;
+    final randomBurst = (_spinInstabilityRandom.nextDouble() * 2 - 1);
+    _spinInstabilityRotationOffset =
+        sin(_spinInstabilityPhase) * rotationAmp +
+        sin(_spinInstabilityPhase * 1.73 + randomBurst * pi) *
+            rotationAmp *
+            0.42;
+
+    final translationAmpFactor = min(
+      WheelUiTuning.spinInstabilityTranslationAmpMaxFactor,
+      WheelUiTuning.spinInstabilityTranslationAmpBaseFactor +
+          intensity * WheelUiTuning.spinInstabilityTranslationAmpGainFactor,
+    );
+    final translationAmp = _wheelBaseSize * translationAmpFactor;
+    _spinInstabilityTranslation = Offset(
+      sin(_spinInstabilityPhase * 1.21 + randomBurst * 0.85) * translationAmp,
+      cos(_spinInstabilityPhase * 0.93 - randomBurst * 0.78) *
+          translationAmp *
+          0.9,
+    );
+
+    if (allowVelocityNoise && _spinAngularVelocity != 0) {
+      final noiseStrength =
+          WheelUiTuning.spinInstabilityVelocityNoiseBase +
+          intensity * WheelUiTuning.spinInstabilityVelocityNoiseGain;
+      final signedNoise =
+          (_spinInstabilityRandom.nextDouble() * 2 - 1) *
+          noiseStrength *
+          dt *
+          55;
+      final sign = _spinAngularVelocity.sign;
+      final nextAbs = max(0.0, _spinAngularVelocity.abs() * (1 + signedNoise));
+      _spinAngularVelocity = sign * nextAbs;
+    }
+  }
+
+  void _decaySpinInstability(double dt) {
+    _syncSpinInstabilityHaptics(0);
+    if (_spinInstabilityRotationOffset.abs() < 0.0001 &&
+        _spinInstabilityTranslation.distance < 0.01) {
+      _spinInstabilityRotationOffset = 0;
+      _spinInstabilityTranslation = Offset.zero;
+      return;
+    }
+    final decay = exp(
+      -WheelUiTuning.spinInstabilityDecayRate * dt,
+    ).clamp(0.0, 1.0).toDouble();
+    _spinInstabilityRotationOffset *= decay;
+    _spinInstabilityTranslation = Offset(
+      _spinInstabilityTranslation.dx * decay,
+      _spinInstabilityTranslation.dy * decay,
+    );
+  }
+
+  void _resetSpinInstability() {
+    _stopSpinInstabilityHaptics();
+    _spinInstabilityPhase = 0;
+    _spinInstabilityRotationOffset = 0;
+    _spinInstabilityTranslation = Offset.zero;
+  }
+
+  void _syncSpinInstabilityHaptics(double intensity) {
+    _instabilityHapticIntensity = intensity;
+    final active =
+        _spinRunning &&
+        !_edgeBrakeActive &&
+        intensity >= WheelUiTuning.spinInstabilityHapticStartIntensity;
+    if (!active) {
+      _stopSpinInstabilityHaptics();
+      return;
+    }
+    if (_instabilityHapticTimer != null) {
+      return;
+    }
+    _scheduleNextSpinInstabilityHaptic();
+  }
+
+  void _scheduleNextSpinInstabilityHaptic() {
+    if (!_spinRunning ||
+        _edgeBrakeActive ||
+        _instabilityHapticIntensity <
+            WheelUiTuning.spinInstabilityHapticStartIntensity) {
+      _stopSpinInstabilityHaptics();
+      return;
+    }
+    const maxIntensityForTiming = 2.6;
+    final normalized = (_instabilityHapticIntensity / maxIntensityForTiming)
+        .clamp(0.0, 1.0)
+        .toDouble();
+    final eased = Curves.easeInCubic.transform(normalized);
+    final maxInterval = WheelUiTuning.spinInstabilityHapticMaxIntervalMs;
+    final minInterval = WheelUiTuning.spinInstabilityHapticMinIntervalMs;
+    final intervalMs = max(
+      minInterval,
+      (maxInterval - ((maxInterval - minInterval) * eased)).round(),
+    );
+    _instabilityHapticTimer = Timer(Duration(milliseconds: intervalMs), () {
+      _instabilityHapticTimer = null;
+      if (!_spinRunning ||
+          _edgeBrakeActive ||
+          _instabilityHapticIntensity <
+              WheelUiTuning.spinInstabilityHapticStartIntensity) {
+        _stopSpinInstabilityHaptics();
+        return;
+      }
+      if (_instabilityHapticIntensity >= 1.35) {
+        HapticFeedback.heavyImpact();
+      } else if (_instabilityHapticIntensity >=
+          WheelUiTuning.spinInstabilityHapticStrongIntensity) {
+        HapticFeedback.mediumImpact();
+      } else if (_instabilityHapticIntensity >= 0.24) {
+        HapticFeedback.lightImpact();
+      } else {
+        HapticFeedback.selectionClick();
+      }
+      _scheduleNextSpinInstabilityHaptic();
+    });
+  }
+
+  void _stopSpinInstabilityHaptics() {
+    _instabilityHapticTimer?.cancel();
+    _instabilityHapticTimer = null;
+    _instabilityHapticIntensity = 0;
+  }
+
   double get _currentSpinSpeedRpm => _spinAngularVelocity.abs() * 60 / (2 * pi);
 
   void _syncSpinSpeedHud() {
@@ -1303,13 +1488,9 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
   }
 
   String _spinSpeedHudLabel(BuildContext context) {
-    final localeCode = Localizations.localeOf(context).languageCode;
     final speed = _spinRunning ? _currentSpinSpeedRpm : _lastSpinSpeedRpm;
     final rpmText = speed.toStringAsFixed(1);
-    if (localeCode.startsWith('zh')) {
-      return '实时转速 $rpmText RPM';
-    }
-    return 'Live Speed $rpmText RPM';
+    return '$rpmText RPM';
   }
 
   Widget _buildGlowSource({
@@ -1469,36 +1650,33 @@ class _PillTag extends StatelessWidget {
 }
 
 class _SpinSpeedHud extends StatelessWidget {
-  const _SpinSpeedHud({required this.text, required this.accentColor});
+  const _SpinSpeedHud({required this.text});
 
   final String text;
-  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
+    return Text(
+      text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      textAlign: TextAlign.center,
+      style: theme.textTheme.headlineMedium?.copyWith(
+        fontSize: 28,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.2,
         color: isDark
-            ? Colors.black.withValues(alpha: 0.24)
-            : Colors.white.withValues(alpha: 0.5),
-        border: Border.all(
-          color: accentColor.withValues(alpha: isDark ? 0.32 : 0.28),
-        ),
-      ),
-      child: Text(
-        text,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.labelSmall?.copyWith(
-          fontWeight: FontWeight.w700,
-          color: isDark
-              ? Colors.white.withValues(alpha: 0.92)
-              : Colors.black.withValues(alpha: 0.82),
-        ),
+            ? Colors.white.withValues(alpha: 0.96)
+            : Colors.black.withValues(alpha: 0.9),
+        shadows: [
+          Shadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.12),
+            blurRadius: isDark ? 10 : 6,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
     );
   }
