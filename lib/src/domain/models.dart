@@ -66,6 +66,9 @@ class WheelModel {
     required this.createdAt,
     required this.updatedAt,
     required this.items,
+    this.backgroundImagePath,
+    this.backgroundImageOpacity = 0.32,
+    this.backgroundImageBlurSigma = 0,
   });
 
   final int id;
@@ -76,6 +79,9 @@ class WheelModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<WheelItemModel> items;
+  final String? backgroundImagePath;
+  final double backgroundImageOpacity;
+  final double backgroundImageBlurSigma;
 
   WheelModel copyWith({
     int? id,
@@ -86,6 +92,10 @@ class WheelModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     List<WheelItemModel>? items,
+    String? backgroundImagePath,
+    bool clearBackgroundImagePath = false,
+    double? backgroundImageOpacity,
+    double? backgroundImageBlurSigma,
   }) {
     return WheelModel(
       id: id ?? this.id,
@@ -96,6 +106,13 @@ class WheelModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       items: items ?? this.items,
+      backgroundImagePath: clearBackgroundImagePath
+          ? null
+          : (backgroundImagePath ?? this.backgroundImagePath),
+      backgroundImageOpacity:
+          backgroundImageOpacity ?? this.backgroundImageOpacity,
+      backgroundImageBlurSigma:
+          backgroundImageBlurSigma ?? this.backgroundImageBlurSigma,
     );
   }
 }
@@ -120,7 +137,9 @@ class CoinModeSettings {
   }) {
     return CoinModeSettings(
       firstItemId: clearFirstItemId ? null : (firstItemId ?? this.firstItemId),
-      secondItemId: clearSecondItemId ? null : (secondItemId ?? this.secondItemId),
+      secondItemId: clearSecondItemId
+          ? null
+          : (secondItemId ?? this.secondItemId),
       lastPartnerByItemId: lastPartnerByItemId ?? this.lastPartnerByItemId,
     );
   }
@@ -218,7 +237,9 @@ class CardModeSettings {
   final bool revealAllOnPick;
 
   CardModeSettings copyWith({bool? revealAllOnPick}) {
-    return CardModeSettings(revealAllOnPick: revealAllOnPick ?? this.revealAllOnPick);
+    return CardModeSettings(
+      revealAllOnPick: revealAllOnPick ?? this.revealAllOnPick,
+    );
   }
 
   Map<String, dynamic> toJson() => {'revealAllOnPick': revealAllOnPick};
@@ -271,7 +292,9 @@ class AppSettingsModel {
     bool clearLocaleOverride = false,
   }) {
     return AppSettingsModel(
-      localeOverride: clearLocaleOverride ? null : (localeOverride ?? this.localeOverride),
+      localeOverride: clearLocaleOverride
+          ? null
+          : (localeOverride ?? this.localeOverride),
       themeMode: themeMode ?? this.themeMode,
       modeByWheelId: modeByWheelId ?? this.modeByWheelId,
       coinByWheelId: coinByWheelId ?? this.coinByWheelId,
@@ -285,17 +308,26 @@ class AppSettingsModel {
     return copyWith(modeByWheelId: updated);
   }
 
-  AppSettingsModel withCoinSettingsForWheel(int wheelId, CoinModeSettings value) {
+  AppSettingsModel withCoinSettingsForWheel(
+    int wheelId,
+    CoinModeSettings value,
+  ) {
     final updated = {...coinByWheelId, wheelId: value};
     return copyWith(coinByWheelId: updated);
   }
 
-  AppSettingsModel withDiceSettingsForWheel(int wheelId, DiceModeSettings value) {
+  AppSettingsModel withDiceSettingsForWheel(
+    int wheelId,
+    DiceModeSettings value,
+  ) {
     final updated = {...diceByWheelId, wheelId: value};
     return copyWith(diceByWheelId: updated);
   }
 
-  AppSettingsModel withCardSettingsForWheel(int wheelId, CardModeSettings value) {
+  AppSettingsModel withCardSettingsForWheel(
+    int wheelId,
+    CardModeSettings value,
+  ) {
     final updated = {...cardByWheelId, wheelId: value};
     return copyWith(cardByWheelId: updated);
   }
@@ -340,7 +372,10 @@ class AppSettingsModel {
     required Map<String, dynamic>? drawSettingsJson,
   }) {
     if (drawSettingsJson == null) {
-      return AppSettingsModel(localeOverride: localeOverride, themeMode: themeMode);
+      return AppSettingsModel(
+        localeOverride: localeOverride,
+        themeMode: themeMode,
+      );
     }
     final rawModes = drawSettingsJson['modeByWheelId'];
     final rawCoin = drawSettingsJson['coinByWheelId'];
@@ -375,7 +410,9 @@ class AppSettingsModel {
         if (wheelId == null || entry.value is! Map) {
           continue;
         }
-        coin[wheelId] = CoinModeSettings.fromJson(_mapToDynamic(entry.value as Map));
+        coin[wheelId] = CoinModeSettings.fromJson(
+          _mapToDynamic(entry.value as Map),
+        );
       }
     }
 
@@ -386,7 +423,9 @@ class AppSettingsModel {
         if (wheelId == null || entry.value is! Map) {
           continue;
         }
-        dice[wheelId] = DiceModeSettings.fromJson(_mapToDynamic(entry.value as Map));
+        dice[wheelId] = DiceModeSettings.fromJson(
+          _mapToDynamic(entry.value as Map),
+        );
       }
     }
 
@@ -397,7 +436,9 @@ class AppSettingsModel {
         if (wheelId == null || entry.value is! Map) {
           continue;
         }
-        card[wheelId] = CardModeSettings.fromJson(_mapToDynamic(entry.value as Map));
+        card[wheelId] = CardModeSettings.fromJson(
+          _mapToDynamic(entry.value as Map),
+        );
       }
     }
 

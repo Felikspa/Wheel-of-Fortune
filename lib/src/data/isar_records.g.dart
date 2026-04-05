@@ -17,34 +17,49 @@ const WheelRecordSchema = CollectionSchema(
   name: r'WheelRecord',
   id: -4633196076657241671,
   properties: {
-    r'createdAt': PropertySchema(
+    r'backgroundImageBlurSigma': PropertySchema(
       id: 0,
+      name: r'backgroundImageBlurSigma',
+      type: IsarType.double,
+    ),
+    r'backgroundImageOpacity': PropertySchema(
+      id: 1,
+      name: r'backgroundImageOpacity',
+      type: IsarType.double,
+    ),
+    r'backgroundImagePath': PropertySchema(
+      id: 2,
+      name: r'backgroundImagePath',
+      type: IsarType.string,
+    ),
+    r'createdAt': PropertySchema(
+      id: 3,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'name': PropertySchema(
-      id: 1,
+      id: 4,
       name: r'name',
       type: IsarType.string,
     ),
     r'palette': PropertySchema(
-      id: 2,
+      id: 5,
       name: r'palette',
       type: IsarType.string,
     ),
     r'probabilityMode': PropertySchema(
-      id: 3,
+      id: 6,
       name: r'probabilityMode',
       type: IsarType.string,
       enumMap: _WheelRecordprobabilityModeEnumValueMap,
     ),
     r'spinDurationMs': PropertySchema(
-      id: 4,
+      id: 7,
       name: r'spinDurationMs',
       type: IsarType.long,
     ),
     r'updatedAt': PropertySchema(
-      id: 5,
+      id: 8,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -69,6 +84,12 @@ int _wheelRecordEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.backgroundImagePath;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.name.length * 3;
   bytesCount += 3 + object.palette.length * 3;
   bytesCount += 3 + object.probabilityMode.name.length * 3;
@@ -81,12 +102,15 @@ void _wheelRecordSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeDateTime(offsets[0], object.createdAt);
-  writer.writeString(offsets[1], object.name);
-  writer.writeString(offsets[2], object.palette);
-  writer.writeString(offsets[3], object.probabilityMode.name);
-  writer.writeLong(offsets[4], object.spinDurationMs);
-  writer.writeDateTime(offsets[5], object.updatedAt);
+  writer.writeDouble(offsets[0], object.backgroundImageBlurSigma);
+  writer.writeDouble(offsets[1], object.backgroundImageOpacity);
+  writer.writeString(offsets[2], object.backgroundImagePath);
+  writer.writeDateTime(offsets[3], object.createdAt);
+  writer.writeString(offsets[4], object.name);
+  writer.writeString(offsets[5], object.palette);
+  writer.writeString(offsets[6], object.probabilityMode.name);
+  writer.writeLong(offsets[7], object.spinDurationMs);
+  writer.writeDateTime(offsets[8], object.updatedAt);
 }
 
 WheelRecord _wheelRecordDeserialize(
@@ -96,15 +120,18 @@ WheelRecord _wheelRecordDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = WheelRecord();
-  object.createdAt = reader.readDateTime(offsets[0]);
+  object.backgroundImageBlurSigma = reader.readDouble(offsets[0]);
+  object.backgroundImageOpacity = reader.readDouble(offsets[1]);
+  object.backgroundImagePath = reader.readStringOrNull(offsets[2]);
+  object.createdAt = reader.readDateTime(offsets[3]);
   object.id = id;
-  object.name = reader.readString(offsets[1]);
-  object.palette = reader.readString(offsets[2]);
+  object.name = reader.readString(offsets[4]);
+  object.palette = reader.readString(offsets[5]);
   object.probabilityMode = _WheelRecordprobabilityModeValueEnumMap[
-          reader.readStringOrNull(offsets[3])] ??
+          reader.readStringOrNull(offsets[6])] ??
       ProbabilityMode.equal;
-  object.spinDurationMs = reader.readLong(offsets[4]);
-  object.updatedAt = reader.readDateTime(offsets[5]);
+  object.spinDurationMs = reader.readLong(offsets[7]);
+  object.updatedAt = reader.readDateTime(offsets[8]);
   return object;
 }
 
@@ -116,18 +143,24 @@ P _wheelRecordDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 1:
-      return (reader.readString(offset)) as P;
+      return (reader.readDouble(offset)) as P;
     case 2:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 3:
+      return (reader.readDateTime(offset)) as P;
+    case 4:
+      return (reader.readString(offset)) as P;
+    case 5:
+      return (reader.readString(offset)) as P;
+    case 6:
       return (_WheelRecordprobabilityModeValueEnumMap[
               reader.readStringOrNull(offset)] ??
           ProbabilityMode.equal) as P;
-    case 4:
+    case 7:
       return (reader.readLong(offset)) as P;
-    case 5:
+    case 8:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -238,6 +271,292 @@ extension WheelRecordQueryWhere
 
 extension WheelRecordQueryFilter
     on QueryBuilder<WheelRecord, WheelRecord, QFilterCondition> {
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImageBlurSigmaEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'backgroundImageBlurSigma',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImageBlurSigmaGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'backgroundImageBlurSigma',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImageBlurSigmaLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'backgroundImageBlurSigma',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImageBlurSigmaBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'backgroundImageBlurSigma',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImageOpacityEqualTo(
+    double value, {
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'backgroundImageOpacity',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImageOpacityGreaterThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'backgroundImageOpacity',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImageOpacityLessThan(
+    double value, {
+    bool include = false,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'backgroundImageOpacity',
+        value: value,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImageOpacityBetween(
+    double lower,
+    double upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    double epsilon = Query.epsilon,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'backgroundImageOpacity',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        epsilon: epsilon,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImagePathIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'backgroundImagePath',
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImagePathIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'backgroundImagePath',
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImagePathEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'backgroundImagePath',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImagePathGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'backgroundImagePath',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImagePathLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'backgroundImagePath',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImagePathBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'backgroundImagePath',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImagePathStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'backgroundImagePath',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImagePathEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'backgroundImagePath',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImagePathContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'backgroundImagePath',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImagePathMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'backgroundImagePath',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImagePathIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'backgroundImagePath',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
+      backgroundImagePathIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'backgroundImagePath',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<WheelRecord, WheelRecord, QAfterFilterCondition>
       createdAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
@@ -869,6 +1188,48 @@ extension WheelRecordQueryLinks
 
 extension WheelRecordQuerySortBy
     on QueryBuilder<WheelRecord, WheelRecord, QSortBy> {
+  QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy>
+      sortByBackgroundImageBlurSigma() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backgroundImageBlurSigma', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy>
+      sortByBackgroundImageBlurSigmaDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backgroundImageBlurSigma', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy>
+      sortByBackgroundImageOpacity() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backgroundImageOpacity', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy>
+      sortByBackgroundImageOpacityDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backgroundImageOpacity', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy>
+      sortByBackgroundImagePath() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backgroundImagePath', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy>
+      sortByBackgroundImagePathDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backgroundImagePath', Sort.desc);
+    });
+  }
+
   QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy> sortByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
@@ -946,6 +1307,48 @@ extension WheelRecordQuerySortBy
 
 extension WheelRecordQuerySortThenBy
     on QueryBuilder<WheelRecord, WheelRecord, QSortThenBy> {
+  QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy>
+      thenByBackgroundImageBlurSigma() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backgroundImageBlurSigma', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy>
+      thenByBackgroundImageBlurSigmaDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backgroundImageBlurSigma', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy>
+      thenByBackgroundImageOpacity() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backgroundImageOpacity', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy>
+      thenByBackgroundImageOpacityDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backgroundImageOpacity', Sort.desc);
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy>
+      thenByBackgroundImagePath() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backgroundImagePath', Sort.asc);
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy>
+      thenByBackgroundImagePathDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'backgroundImagePath', Sort.desc);
+    });
+  }
+
   QueryBuilder<WheelRecord, WheelRecord, QAfterSortBy> thenByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.asc);
@@ -1035,6 +1438,28 @@ extension WheelRecordQuerySortThenBy
 
 extension WheelRecordQueryWhereDistinct
     on QueryBuilder<WheelRecord, WheelRecord, QDistinct> {
+  QueryBuilder<WheelRecord, WheelRecord, QDistinct>
+      distinctByBackgroundImageBlurSigma() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'backgroundImageBlurSigma');
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QDistinct>
+      distinctByBackgroundImageOpacity() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'backgroundImageOpacity');
+    });
+  }
+
+  QueryBuilder<WheelRecord, WheelRecord, QDistinct>
+      distinctByBackgroundImagePath({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'backgroundImagePath',
+          caseSensitive: caseSensitive);
+    });
+  }
+
   QueryBuilder<WheelRecord, WheelRecord, QDistinct> distinctByCreatedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'createdAt');
@@ -1081,6 +1506,27 @@ extension WheelRecordQueryProperty
   QueryBuilder<WheelRecord, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<WheelRecord, double, QQueryOperations>
+      backgroundImageBlurSigmaProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'backgroundImageBlurSigma');
+    });
+  }
+
+  QueryBuilder<WheelRecord, double, QQueryOperations>
+      backgroundImageOpacityProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'backgroundImageOpacity');
+    });
+  }
+
+  QueryBuilder<WheelRecord, String?, QQueryOperations>
+      backgroundImagePathProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'backgroundImagePath');
     });
   }
 

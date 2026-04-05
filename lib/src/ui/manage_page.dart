@@ -1,6 +1,10 @@
+import 'dart:io';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -21,12 +25,18 @@ class ManagePage extends StatelessWidget {
         final wheel = controller.selectedWheel;
         final theme = Theme.of(context);
         final isDark = theme.brightness == Brightness.dark;
+        final accentColor = _paletteAccentColor(wheel?.palette, isDark);
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
           children: [
-            _SectionTitle(icon: Icons.layers_outlined, title: l10n.wheels),
+            _SectionTitle(
+              icon: Icons.layers_outlined,
+              title: l10n.wheels,
+              accentColor: accentColor,
+            ),
             const SizedBox(height: 8),
             _FrostedPanel(
+              accentColor: accentColor,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -42,12 +52,12 @@ class ManagePage extends StatelessWidget {
                           ),
                           label: Text(entry.name),
                           selected: entry.id == controller.selectedWheelId,
-                          selectedColor: theme.colorScheme.primary.withValues(
+                          selectedColor: accentColor.withValues(
                             alpha: isDark ? 0.26 : 0.2,
                           ),
                           side: BorderSide(
                             color: entry.id == controller.selectedWheelId
-                                ? theme.colorScheme.primary.withValues(
+                                ? accentColor.withValues(
                                     alpha: isDark ? 0.45 : 0.38,
                                   )
                                 : (theme.dividerTheme.color ??
@@ -62,9 +72,14 @@ class ManagePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _SectionTitle(icon: Icons.bolt_rounded, title: l10n.tabManage),
+            _SectionTitle(
+              icon: Icons.bolt_rounded,
+              title: l10n.tabManage,
+              accentColor: accentColor,
+            ),
             const SizedBox(height: 8),
             _FrostedPanel(
+              accentColor: accentColor,
               child: Column(
                 children: [
                   Row(
@@ -73,6 +88,7 @@ class ManagePage extends StatelessWidget {
                         child: _ActionButton(
                           icon: Icons.add_circle_outline_rounded,
                           label: l10n.addWheel,
+                          accentColor: accentColor,
                           onPressed: () => _addWheel(context),
                         ),
                       ),
@@ -81,6 +97,7 @@ class ManagePage extends StatelessWidget {
                         child: _ActionButton(
                           icon: Icons.delete_outline_rounded,
                           label: l10n.deleteWheel,
+                          accentColor: accentColor,
                           onPressed: wheel == null
                               ? null
                               : () => _deleteWheel(context, wheel.id),
@@ -95,6 +112,7 @@ class ManagePage extends StatelessWidget {
                         child: _ActionButton(
                           icon: Icons.upload_rounded,
                           label: l10n.quickExport,
+                          accentColor: accentColor,
                           onPressed: wheel == null
                               ? null
                               : () => _exportWheel(context),
@@ -105,6 +123,7 @@ class ManagePage extends StatelessWidget {
                         child: _ActionButton(
                           icon: Icons.download_rounded,
                           label: l10n.quickImport,
+                          accentColor: accentColor,
                           onPressed: () => _importWheel(context),
                         ),
                       ),
@@ -115,12 +134,12 @@ class ManagePage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             if (wheel != null) ...[
-              _WheelSettingsCard(wheel: wheel),
+              _WheelSettingsCard(wheel: wheel, accentColor: accentColor),
               const SizedBox(height: 16),
-              _ItemsCard(wheel: wheel),
+              _ItemsCard(wheel: wheel, accentColor: accentColor),
               const SizedBox(height: 16),
             ],
-            const _AppSettingsCard(),
+            _AppSettingsCard(accentColor: accentColor),
           ],
         );
       },
@@ -255,9 +274,10 @@ class ManagePage extends StatelessWidget {
 }
 
 class _WheelSettingsCard extends StatefulWidget {
-  const _WheelSettingsCard({required this.wheel});
+  const _WheelSettingsCard({required this.wheel, required this.accentColor});
 
   final WheelModel wheel;
+  final Color accentColor;
 
   @override
   State<_WheelSettingsCard> createState() => _WheelSettingsCardState();
@@ -265,12 +285,18 @@ class _WheelSettingsCard extends StatefulWidget {
 
 class _WheelSettingsCardState extends State<_WheelSettingsCard> {
   late double _spinDuration;
+  late double _backgroundOpacity;
+  late double _backgroundBlur;
   bool _isDraggingDuration = false;
+  bool _isDraggingBackgroundOpacity = false;
+  bool _isDraggingBackgroundBlur = false;
 
   @override
   void initState() {
     super.initState();
     _spinDuration = widget.wheel.spinDurationMs.toDouble();
+    _backgroundOpacity = widget.wheel.backgroundImageOpacity;
+    _backgroundBlur = widget.wheel.backgroundImageBlurSigma;
   }
 
   @override
@@ -282,16 +308,35 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
     if (!_isDraggingDuration && (wheelChanged || valueChanged)) {
       _spinDuration = widget.wheel.spinDurationMs.toDouble();
     }
+    final opacityChanged =
+        oldWidget.wheel.backgroundImageOpacity !=
+        widget.wheel.backgroundImageOpacity;
+    if (!_isDraggingBackgroundOpacity && (wheelChanged || opacityChanged)) {
+      _backgroundOpacity = widget.wheel.backgroundImageOpacity;
+    }
+    final blurChanged =
+        oldWidget.wheel.backgroundImageBlurSigma !=
+        widget.wheel.backgroundImageBlurSigma;
+    if (!_isDraggingBackgroundBlur && (wheelChanged || blurChanged)) {
+      _backgroundBlur = widget.wheel.backgroundImageBlurSigma;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final controller = context.read<AppController>();
-    final randomPaletteLabel =
-        Localizations.localeOf(context).languageCode == 'zh' ? '随机' : 'Random';
-    final pinkPaletteLabel =
-        Localizations.localeOf(context).languageCode == 'zh' ? '樱粉' : 'Pink';
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final randomPaletteLabel = isZh ? '随机' : 'Random';
+    final pinkPaletteLabel = isZh ? '樱粉' : 'Pink';
+    final backgroundImageLabel = isZh ? '背景图' : 'Background Image';
+    final chooseImageLabel = isZh ? '选择图片' : 'Choose Image';
+    final changeImageLabel = isZh ? '更换图片' : 'Change Image';
+    final clearImageLabel = isZh ? '清除图片' : 'Clear Image';
+    final opacityLabel = isZh ? '透明度' : 'Opacity';
+    final blurLabel = isZh ? '模糊度' : 'Blur';
     final paletteOptions = <String, String>{
       'random': randomPaletteLabel,
       'ocean': l10n.paletteOcean,
@@ -302,6 +347,7 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
     };
 
     return _FrostedPanel(
+      accentColor: widget.accentColor,
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,6 +355,7 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
           _PanelHeader(
             icon: Icons.settings_suggest_outlined,
             title: l10n.currentWheelSettings,
+            accentColor: widget.accentColor,
           ),
           const SizedBox(height: 12),
           TextFormField(
@@ -334,8 +381,11 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
             isExpanded: true,
             menuMaxHeight: 320,
             borderRadius: _dropdownPopupRadius,
-            dropdownColor: _dropdownPopupColor(context),
-            iconEnabledColor: Theme.of(context).colorScheme.primary,
+            dropdownColor: _dropdownPopupColor(
+              context,
+              accentColor: widget.accentColor,
+            ),
+            iconEnabledColor: widget.accentColor,
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -373,6 +423,10 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
             min: 2000,
             max: 10000,
             divisions: 16,
+            activeColor: widget.accentColor,
+            inactiveColor: widget.accentColor.withValues(
+              alpha: isDark ? 0.26 : 0.24,
+            ),
             onChanged: (value) {
               setState(() {
                 _spinDuration = value;
@@ -395,8 +449,11 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
             isExpanded: true,
             menuMaxHeight: 320,
             borderRadius: _dropdownPopupRadius,
-            dropdownColor: _dropdownPopupColor(context),
-            iconEnabledColor: Theme.of(context).colorScheme.primary,
+            dropdownColor: _dropdownPopupColor(
+              context,
+              accentColor: widget.accentColor,
+            ),
+            iconEnabledColor: widget.accentColor,
             style: Theme.of(
               context,
             ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -419,39 +476,247 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
               );
             },
           ),
+          const SizedBox(height: 12),
+          Text(
+            backgroundImageLabel,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _pickBackgroundImage(controller),
+                  icon: const Icon(Icons.image_outlined),
+                  label: Text(
+                    widget.wheel.backgroundImagePath == null
+                        ? chooseImageLabel
+                        : changeImageLabel,
+                  ),
+                ),
+              ),
+              if (widget.wheel.backgroundImagePath != null) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _clearBackgroundImage(controller),
+                    icon: const Icon(Icons.delete_outline),
+                    label: Text(clearImageLabel),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (widget.wheel.backgroundImagePath != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _basename(widget.wheel.backgroundImagePath!),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: 10),
+            Text('$opacityLabel: ${_backgroundOpacity.toStringAsFixed(2)}'),
+            Slider(
+              value: _backgroundOpacity.clamp(0.0, 1.0),
+              min: 0,
+              max: 1,
+              divisions: 20,
+              activeColor: widget.accentColor,
+              inactiveColor: widget.accentColor.withValues(
+                alpha: isDark ? 0.26 : 0.24,
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _backgroundOpacity = value;
+                  _isDraggingBackgroundOpacity = true;
+                });
+              },
+              onChangeEnd: (value) async {
+                _isDraggingBackgroundOpacity = false;
+                await controller.updateWheelConfig(
+                  wheelId: widget.wheel.id,
+                  backgroundImageOpacity: value,
+                );
+              },
+            ),
+            Text('$blurLabel: ${_backgroundBlur.toStringAsFixed(1)}'),
+            Slider(
+              value: _backgroundBlur.clamp(0.0, 24.0),
+              min: 0,
+              max: 24,
+              divisions: 24,
+              activeColor: widget.accentColor,
+              inactiveColor: widget.accentColor.withValues(
+                alpha: isDark ? 0.26 : 0.24,
+              ),
+              onChanged: (value) {
+                setState(() {
+                  _backgroundBlur = value;
+                  _isDraggingBackgroundBlur = true;
+                });
+              },
+              onChangeEnd: (value) async {
+                _isDraggingBackgroundBlur = false;
+                await controller.updateWheelConfig(
+                  wheelId: widget.wheel.id,
+                  backgroundImageBlurSigma: value,
+                );
+              },
+            ),
+          ],
         ],
       ),
     );
   }
+
+  Future<void> _pickBackgroundImage(AppController controller) async {
+    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        allowMultiple: false,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) {
+        return;
+      }
+      final picked = result.files.first;
+      final ext = _resolveExtensionFromName(picked.name);
+      final directory = await getApplicationDocumentsDirectory();
+      final backgroundsDir = Directory('${directory.path}/wheel_backgrounds');
+      if (!backgroundsDir.existsSync()) {
+        await backgroundsDir.create(recursive: true);
+      }
+      final target = File(
+        '${backgroundsDir.path}/wheel_${widget.wheel.id}_${DateTime.now().millisecondsSinceEpoch}.$ext',
+      );
+      final sourcePath = picked.path;
+      if (sourcePath != null && sourcePath.isNotEmpty) {
+        final sourceFile = File(sourcePath);
+        if (sourceFile.existsSync()) {
+          await sourceFile.copy(target.path);
+        } else if (picked.bytes != null) {
+          await target.writeAsBytes(picked.bytes!, flush: true);
+        } else {
+          throw StateError('Selected image path does not exist.');
+        }
+      } else if (picked.bytes != null) {
+        await target.writeAsBytes(picked.bytes!, flush: true);
+      } else {
+        throw StateError('No image bytes available from picker.');
+      }
+      final previous = widget.wheel.backgroundImagePath;
+      if (previous != null && previous != target.path) {
+        final oldFile = File(previous);
+        if (oldFile.existsSync()) {
+          await oldFile.delete();
+        }
+      }
+      await controller.updateWheelConfig(
+        wheelId: widget.wheel.id,
+        backgroundImagePath: target.path,
+      );
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isZh ? '背景图已应用' : 'Background image applied')),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      final message = isZh
+          ? '设置背景图失败: $error'
+          : 'Failed to apply background image: $error';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
+  }
+
+  Future<void> _clearBackgroundImage(AppController controller) async {
+    final previous = widget.wheel.backgroundImagePath;
+    if (previous != null) {
+      final oldFile = File(previous);
+      if (oldFile.existsSync()) {
+        await oldFile.delete();
+      }
+    }
+    await controller.updateWheelConfig(
+      wheelId: widget.wheel.id,
+      clearBackgroundImagePath: true,
+    );
+  }
+
+  String _resolveExtensionFromName(String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    if (dot < 0 || dot == fileName.length - 1) {
+      return 'jpg';
+    }
+    final ext = fileName.substring(dot + 1).trim().toLowerCase();
+    if (ext.isNotEmpty) {
+      return ext;
+    }
+    return 'jpg';
+  }
+
+  String _basename(String path) {
+    final slash = path.lastIndexOf(RegExp(r'[\\/]'));
+    if (slash < 0 || slash >= path.length - 1) {
+      return path;
+    }
+    return path.substring(slash + 1);
+  }
 }
 
 class _ItemsCard extends StatelessWidget {
-  const _ItemsCard({required this.wheel});
+  const _ItemsCard({required this.wheel, required this.accentColor});
 
   final WheelModel wheel;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final itemSurface = Color.alphaBlend(
+      accentColor.withValues(alpha: isDark ? 0.11 : 0.07),
+      theme.colorScheme.surface.withValues(alpha: isDark ? 0.32 : 0.56),
+    );
+    final itemBorder = accentColor.withValues(alpha: isDark ? 0.34 : 0.24);
     return _FrostedPanel(
+      accentColor: accentColor,
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              _PanelHeader(icon: Icons.list_alt_rounded, title: l10n.items),
+              _PanelHeader(
+                icon: Icons.list_alt_rounded,
+                title: l10n.items,
+                accentColor: accentColor,
+              ),
               const Spacer(),
               IconButton(
                 onPressed: () => _quickImportItems(context),
-                icon: const Icon(Icons.playlist_add_outlined),
+                icon: Icon(
+                  Icons.playlist_add_outlined,
+                  color: accentColor.withValues(alpha: isDark ? 0.92 : 0.86),
+                ),
                 tooltip: l10n.quickImportItems,
               ),
               IconButton(
                 onPressed: () => _addItem(context),
-                icon: const Icon(Icons.add),
+                icon: Icon(
+                  Icons.add,
+                  color: accentColor.withValues(alpha: isDark ? 0.92 : 0.86),
+                ),
                 tooltip: l10n.addItem,
               ),
             ],
@@ -460,6 +725,19 @@ class _ItemsCard extends StatelessWidget {
             height: 320,
             child: ReorderableListView.builder(
               buildDefaultDragHandles: false,
+              proxyDecorator: (child, index, animation) => Material(
+                color: Colors.transparent,
+                shadowColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: itemSurface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: itemBorder),
+                  ),
+                  child: child,
+                ),
+              ),
               itemCount: wheel.items.length,
               onReorder: (oldIndex, newIndex) {
                 final items = [...wheel.items];
@@ -476,14 +754,9 @@ class _ItemsCard extends StatelessWidget {
                   key: ValueKey(item.id),
                   margin: const EdgeInsets.only(bottom: 8),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surface.withValues(
-                      alpha: isDark ? 0.32 : 0.56,
-                    ),
+                    color: itemSurface,
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: (theme.dividerTheme.color ?? Colors.transparent)
-                          .withValues(alpha: isDark ? 0.95 : 1),
-                    ),
+                    border: Border.all(color: itemBorder),
                   ),
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(
@@ -496,7 +769,12 @@ class _ItemsCard extends StatelessWidget {
                         : Text(item.subtitle!),
                     leading: ReorderableDragStartListener(
                       index: index,
-                      child: const Icon(Icons.drag_indicator),
+                      child: Icon(
+                        Icons.drag_indicator,
+                        color: accentColor.withValues(
+                          alpha: isDark ? 0.82 : 0.72,
+                        ),
+                      ),
                     ),
                     onTap: () => _editItem(context, index, item),
                     trailing: IconButton(
@@ -728,7 +1006,9 @@ class _ItemsCard extends StatelessWidget {
 }
 
 class _AppSettingsCard extends StatelessWidget {
-  const _AppSettingsCard();
+  const _AppSettingsCard({required this.accentColor});
+
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -737,6 +1017,7 @@ class _AppSettingsCard extends StatelessWidget {
       builder: (context, controller, _) {
         final settings = controller.settings;
         return _FrostedPanel(
+          accentColor: accentColor,
           padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -744,6 +1025,7 @@ class _AppSettingsCard extends StatelessWidget {
               _PanelHeader(
                 icon: Icons.phone_iphone_rounded,
                 title: l10n.appSettings,
+                accentColor: accentColor,
               ),
               const SizedBox(height: 10),
               DropdownButtonFormField<String?>(
@@ -752,8 +1034,11 @@ class _AppSettingsCard extends StatelessWidget {
                 isExpanded: true,
                 menuMaxHeight: 320,
                 borderRadius: _dropdownPopupRadius,
-                dropdownColor: _dropdownPopupColor(context),
-                iconEnabledColor: Theme.of(context).colorScheme.primary,
+                dropdownColor: _dropdownPopupColor(
+                  context,
+                  accentColor: accentColor,
+                ),
+                iconEnabledColor: accentColor,
                 style: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -781,8 +1066,11 @@ class _AppSettingsCard extends StatelessWidget {
                 isExpanded: true,
                 menuMaxHeight: 320,
                 borderRadius: _dropdownPopupRadius,
-                dropdownColor: _dropdownPopupColor(context),
-                iconEnabledColor: Theme.of(context).colorScheme.primary,
+                dropdownColor: _dropdownPopupColor(
+                  context,
+                  accentColor: accentColor,
+                ),
+                iconEnabledColor: accentColor,
                 style: Theme.of(
                   context,
                 ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -816,22 +1104,29 @@ class _AppSettingsCard extends StatelessWidget {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({required this.icon, required this.title});
+  const _SectionTitle({
+    required this.icon,
+    required this.title,
+    required this.accentColor,
+  });
 
   final IconData icon;
   final String title;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
+    final defaultTextColor = Theme.of(context).textTheme.titleMedium?.color;
     return Row(
       children: [
-        Icon(icon, size: 18),
+        Icon(icon, size: 18, color: accentColor),
         const SizedBox(width: 8),
         Text(
           title,
-          style: Theme.of(
-            context,
-          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: Color.lerp(defaultTextColor, accentColor, 0.45),
+          ),
         ),
       ],
     );
@@ -839,19 +1134,30 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({required this.icon, required this.title});
+  const _PanelHeader({
+    required this.icon,
+    required this.title,
+    required this.accentColor,
+  });
 
   final IconData icon;
   final String title;
+  final Color accentColor;
 
   @override
   Widget build(BuildContext context) {
+    final defaultTextColor = Theme.of(context).textTheme.titleMedium?.color;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 18),
+        Icon(icon, size: 18, color: accentColor),
         const SizedBox(width: 8),
-        Text(title, style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            color: Color.lerp(defaultTextColor, accentColor, 0.42),
+          ),
+        ),
       ],
     );
   }
@@ -861,11 +1167,13 @@ class _ActionButton extends StatelessWidget {
   const _ActionButton({
     required this.icon,
     required this.label,
+    required this.accentColor,
     required this.onPressed,
   });
 
   final IconData icon;
   final String label;
+  final Color accentColor;
   final VoidCallback? onPressed;
 
   @override
@@ -873,11 +1181,11 @@ class _ActionButton extends StatelessWidget {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final enabled = onPressed != null;
-    final bgColor = theme.colorScheme.surface.withValues(
-      alpha: isDark ? 0.32 : 0.56,
+    final bgColor = Color.alphaBlend(
+      accentColor.withValues(alpha: isDark ? 0.12 : 0.08),
+      theme.colorScheme.surface.withValues(alpha: isDark ? 0.32 : 0.56),
     );
-    final borderColor = (theme.dividerTheme.color ?? Colors.transparent)
-        .withValues(alpha: isDark ? 0.95 : 1);
+    final borderColor = accentColor.withValues(alpha: isDark ? 0.34 : 0.24);
     final fgColor =
         theme.textTheme.labelLarge?.color ??
         (isDark ? Colors.white : Colors.black);
@@ -904,7 +1212,15 @@ class _ActionButton extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 19, color: fgColor),
+                  Icon(
+                    icon,
+                    size: 19,
+                    color: Color.lerp(
+                      fgColor,
+                      accentColor,
+                      enabled ? (isDark ? 0.28 : 0.34) : 0.18,
+                    ),
+                  ),
                   const SizedBox(width: 8),
                   Flexible(
                     child: Text(
@@ -930,17 +1246,18 @@ class _ActionButton extends StatelessWidget {
 class _FrostedPanel extends StatelessWidget {
   const _FrostedPanel({
     required this.child,
+    required this.accentColor,
     this.padding = const EdgeInsets.all(12),
   });
 
   final Widget child;
+  final Color accentColor;
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final accentColor = theme.colorScheme.primary;
     return LiquidGlassChrome(
       borderRadius: 22,
       accentColor: accentColor,
@@ -979,11 +1296,29 @@ class _FrostedPanel extends StatelessWidget {
 
 final BorderRadius _dropdownPopupRadius = BorderRadius.circular(18);
 
-Color _dropdownPopupColor(BuildContext context) {
+Color _dropdownPopupColor(BuildContext context, {required Color accentColor}) {
   final isDark = Theme.of(context).brightness == Brightness.dark;
   return isDark
-      ? const Color(0xFF171D29).withValues(alpha: 0.96)
-      : const Color(0xFFF7FAFF).withValues(alpha: 0.97);
+      ? Color.alphaBlend(
+          accentColor.withValues(alpha: 0.14),
+          const Color(0xFF171D29).withValues(alpha: 0.96),
+        )
+      : Color.alphaBlend(
+          accentColor.withValues(alpha: 0.08),
+          const Color(0xFFF7FAFF).withValues(alpha: 0.97),
+        );
+}
+
+Color _paletteAccentColor(String? palette, bool isDark) {
+  return switch (palette) {
+    'random' => isDark ? const Color(0xFFBFA3FF) : const Color(0xFF7367F0),
+    'ocean' => isDark ? const Color(0xFF71C5FF) : const Color(0xFF2188F6),
+    'sunset' => isDark ? const Color(0xFFFFA36E) : const Color(0xFFEE6C2B),
+    'mint' => isDark ? const Color(0xFF7DE4CA) : const Color(0xFF16B38A),
+    'mono' => isDark ? const Color(0xFF9EA7B4) : const Color(0xFF6F7783),
+    'pink' => isDark ? const Color(0xFFFFA3C8) : const Color(0xFFFF8AB6),
+    _ => isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
+  };
 }
 
 Future<String?> _showTextInputDialog(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
 
@@ -10,6 +11,8 @@ import '../domain/models.dart';
 import '../state/app_controller.dart';
 import 'draw_mode_page.dart';
 import 'manage_page.dart';
+import 'wheel_ui_tuning.dart';
+import 'widgets/wheel_canvas.dart';
 import 'widgets/page_dots.dart';
 
 class HomeShell extends StatefulWidget {
@@ -25,11 +28,13 @@ class _HomeShellState extends State<HomeShell> {
   late final Offset _orbJitterTopRight;
   late final Offset _orbJitterBottomLeft;
   int _currentPage = 0;
+  double _pagePosition = 0;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: 0);
+    _pageController.addListener(_handlePageScroll);
     final rng = Random(DateTime.now().microsecondsSinceEpoch);
     _orbJitterTopRight = Offset(
       (rng.nextDouble() - 0.5) * 56,
@@ -43,8 +48,22 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   void dispose() {
+    _pageController.removeListener(_handlePageScroll);
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _handlePageScroll() {
+    if (!_pageController.hasClients) {
+      return;
+    }
+    final next = _pageController.page ?? _currentPage.toDouble();
+    if ((next - _pagePosition).abs() < 0.0005) {
+      return;
+    }
+    setState(() {
+      _pagePosition = next;
+    });
   }
 
   void _goToManagePage() {
@@ -69,7 +88,28 @@ class _HomeShellState extends State<HomeShell> {
       builder: (context, controller, _) {
         final l10n = AppLocalizations.of(context)!;
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        final palette = controller.selectedWheel?.palette ?? 'random';
+        final selectedWheel = controller.selectedWheel;
+        final palette = selectedWheel?.palette ?? 'random';
+        final wheelViewport =
+            controller.wheelViewportStateForWheel(controller.selectedWheelId) ??
+            const WheelViewportState(
+              rotation: 0,
+              scale: 1.0,
+              translateX: 0,
+              translateY: 0,
+              glowAx: -0.58,
+              glowAy: -0.56,
+              glowBx: 0.48,
+              glowBy: 0.54,
+              glowScaleA: 0.86,
+              glowScaleB: 0.94,
+              sliceSheenX: -0.16,
+              sliceSheenY: -0.12,
+              sliceDepthX: 0.2,
+              sliceDepthY: 0.16,
+              sliceSheenIntensity: 1.0,
+              sliceDepthIntensity: 1.0,
+            );
         final orbColors = _paletteBackdropOrbColors(palette, isDark);
         final canOpenDrawer = _currentPage == 0 && !controller.busy;
         return Scaffold(
@@ -112,26 +152,86 @@ class _HomeShellState extends State<HomeShell> {
             ),
             child: Stack(
               children: [
-                Positioned(
-                  top: -80 + _orbJitterTopRight.dy,
-                  right: -40 + _orbJitterTopRight.dx,
-                  child: _BackgroundOrb(size: 220, color: orbColors[0]),
-                ),
-                Positioned(
-                  bottom: 120 + _orbJitterBottomLeft.dy,
-                  left: -70 + _orbJitterBottomLeft.dx,
-                  child: _BackgroundOrb(size: 250, color: orbColors[1]),
+                if (selectedWheel?.backgroundImagePath != null)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Opacity(
+                        opacity: selectedWheel!.backgroundImageOpacity.clamp(
+                          0.0,
+                          1.0,
+                        ),
+                        child: ImageFiltered(
+                          imageFilter: ImageFilter.blur(
+                            sigmaX: selectedWheel.backgroundImageBlurSigma,
+                            sigmaY: selectedWheel.backgroundImageBlurSigma,
+                          ),
+                          child: Image.file(
+                            File(selectedWheel.backgroundImagePath!),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                Positioned.fill(
+                  child: ValueListenableBuilder<int>(
+                    valueListenable: controller.wheelViewportRevision,
+                    builder: (context, _, _) {
+                      final syncEnabled =
+                          _currentPage == 0 &&
+                          controller.selectedDisplayMode ==
+                              DrawDisplayMode.wheel;
+                      final liveViewport = controller
+                          .wheelViewportStateForWheel(
+                            controller.selectedWheelId,
+                          );
+                      return _BackgroundOrbLayer(
+                        topRightJitter: _orbJitterTopRight,
+                        bottomLeftJitter: _orbJitterBottomLeft,
+                        orbColors: orbColors,
+                        viewportState: syncEnabled ? liveViewport : null,
+                      );
+                    },
+                  ),
                 ),
                 SafeArea(
                   child: Stack(
                     children: [
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: ValueListenableBuilder<int>(
+                            valueListenable: controller.wheelViewportRevision,
+                            builder: (context, _, _) {
+                              final liveViewport =
+                                  controller.wheelViewportStateForWheel(
+                                    controller.selectedWheelId,
+                                  ) ??
+                                  wheelViewport;
+                              return _WheelCarryoverLayer(
+                                wheel:
+                                    controller.selectedDisplayMode ==
+                                        DrawDisplayMode.wheel
+                                    ? controller.selectedWheel
+                                    : null,
+                                winnerItemId: controller.winnerItemId,
+                                viewportState: liveViewport,
+                                palette: palette,
+                                isDark: isDark,
+                                pagePosition: _pagePosition,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
                       PageView(
                         controller: _pageController,
                         physics: controller.busy
                             ? const NeverScrollableScrollPhysics()
                             : const BouncingScrollPhysics(),
-                        onPageChanged: (value) =>
-                            setState(() => _currentPage = value),
+                        onPageChanged: (value) => setState(() {
+                          _currentPage = value;
+                          _pagePosition = value.toDouble();
+                        }),
                         children: [
                           DrawModePage(onOpenManage: _goToManagePage),
                           const ManagePage(),
@@ -575,21 +675,316 @@ class _WheelDrawerTile extends StatelessWidget {
   }
 }
 
-class _BackgroundOrb extends StatelessWidget {
-  const _BackgroundOrb({required this.size, required this.color});
+class _WheelCarryoverLayer extends StatelessWidget {
+  const _WheelCarryoverLayer({
+    required this.wheel,
+    required this.winnerItemId,
+    required this.viewportState,
+    required this.palette,
+    required this.isDark,
+    required this.pagePosition,
+  });
 
-  final double size;
-  final Color color;
+  final WheelModel? wheel;
+  final int? winnerItemId;
+  final WheelViewportState? viewportState;
+  final String palette;
+  final bool isDark;
+  final double pagePosition;
 
   @override
   Widget build(BuildContext context) {
+    final currentWheel = wheel;
+    final viewport = viewportState;
+    if (currentWheel == null || viewport == null) {
+      return const SizedBox.shrink();
+    }
+    final carryProgress = pagePosition.clamp(0.0, 1.0);
+    final scale = viewport.scale.clamp(1.0, WheelUiTuning.wheelMaxScale);
+    final glowColors = _paletteWheelGlowColors(palette, isDark);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pageWidth = constraints.maxWidth;
+        final translatedWheel = Transform.translate(
+          offset: Offset(-pageWidth * carryProgress, 0),
+          child: Padding(
+            padding: WheelUiTuning.pagePadding,
+            child: LayoutBuilder(
+              builder: (context, innerConstraints) {
+                final wheelSize =
+                    innerConstraints.maxWidth *
+                    WheelUiTuning.wheelSizeByWidthFactor;
+                return Transform.translate(
+                  offset: Offset(viewport.translateX, viewport.translateY),
+                  child: Transform.scale(
+                    alignment: Alignment.topLeft,
+                    scale: scale,
+                    child: SizedBox.expand(
+                      child: Align(
+                        alignment: const Alignment(
+                          0,
+                          WheelUiTuning.wheelVerticalAlignmentY,
+                        ),
+                        child: SizedBox(
+                          width: wheelSize,
+                          height: wheelSize,
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Positioned.fill(
+                                child: _CarryoverGlowSource(
+                                  size: wheelSize,
+                                  alignment: Alignment(
+                                    viewport.glowAx,
+                                    viewport.glowAy,
+                                  ),
+                                  color: glowColors[0],
+                                  radiusFactor: viewport.glowScaleA,
+                                  isDark: isDark,
+                                  tilt: -0.28,
+                                ),
+                              ),
+                              Positioned.fill(
+                                child: _CarryoverGlowSource(
+                                  size: wheelSize,
+                                  alignment: Alignment(
+                                    viewport.glowBx,
+                                    viewport.glowBy,
+                                  ),
+                                  color: glowColors[1],
+                                  radiusFactor: viewport.glowScaleB,
+                                  isDark: isDark,
+                                  tilt: 0.42,
+                                ),
+                              ),
+                              WheelCanvas(
+                                wheel: currentWheel,
+                                rotation: viewport.rotation,
+                                winnerItemId: winnerItemId,
+                                onTapSlice: (_) {},
+                                enabled: false,
+                                detailScale: scale,
+                                materialSheenCenter: Alignment(
+                                  viewport.sliceSheenX,
+                                  viewport.sliceSheenY,
+                                ),
+                                materialDepthCenter: Alignment(
+                                  viewport.sliceDepthX,
+                                  viewport.sliceDepthY,
+                                ),
+                                materialSheenIntensity:
+                                    viewport.sliceSheenIntensity,
+                                materialDepthIntensity:
+                                    viewport.sliceDepthIntensity,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+        return RepaintBoundary(child: translatedWheel);
+      },
+    );
+  }
+}
+
+class _CarryoverGlowSource extends StatelessWidget {
+  const _CarryoverGlowSource({
+    required this.size,
+    required this.alignment,
+    required this.color,
+    required this.radiusFactor,
+    required this.isDark,
+    required this.tilt,
+  });
+
+  final double size;
+  final Alignment alignment;
+  final Color color;
+  final double radiusFactor;
+  final bool isDark;
+  final double tilt;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Align(
+        alignment: alignment,
+        child: Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..rotateZ(tilt)
+            ..multiply(Matrix4.diagonal3Values(1.0, isDark ? 0.88 : 0.92, 1.0)),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: size * radiusFactor * 1.16,
+                height: size * radiusFactor * 1.16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      color.withValues(alpha: isDark ? 0.34 : 0.18),
+                      color.withValues(alpha: isDark ? 0.12 : 0.06),
+                      color.withValues(alpha: 0),
+                    ],
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
+                ),
+              ),
+              Container(
+                width: size * radiusFactor * 0.78,
+                height: size * radiusFactor * 0.78,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      color.withValues(alpha: isDark ? 0.56 : 0.3),
+                      color.withValues(alpha: isDark ? 0.24 : 0.12),
+                      color.withValues(alpha: 0),
+                    ],
+                    stops: const [0.0, 0.32, 1.0],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: isDark ? 0.46 : 0.2),
+                      blurRadius: size * 0.11,
+                      spreadRadius: size * 0.008,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+List<Color> _paletteWheelGlowColors(String palette, bool isDark) {
+  return switch (palette) {
+    'random' =>
+      isDark
+          ? [const Color(0xFF9E8BFF), const Color(0xFF54AFFF)]
+          : [const Color(0xFF7A6CF4), const Color(0xFF3E8EF9)],
+    'ocean' =>
+      isDark
+          ? [const Color(0xFF53B8FF), const Color(0xFF35D7C8)]
+          : [const Color(0xFF2A96FF), const Color(0xFF2CCFBA)],
+    'sunset' =>
+      isDark
+          ? [const Color(0xFFFF9B65), const Color(0xFFFF5A86)]
+          : [const Color(0xFFF57A38), const Color(0xFFEC4E6F)],
+    'mint' =>
+      isDark
+          ? [const Color(0xFF59DFC1), const Color(0xFF5CCBF7)]
+          : [const Color(0xFF26C8A0), const Color(0xFF3AAAE8)],
+    'mono' =>
+      isDark
+          ? [const Color(0xFF8D97A7), const Color(0xFF6B7585)]
+          : [const Color(0xFF858E9A), const Color(0xFFA8B0BC)],
+    'pink' =>
+      isDark
+          ? [const Color(0xFFFF79BA), const Color(0xFFAD8DFF)]
+          : [const Color(0xFFFF63AE), const Color(0xFFC29CFF)],
+    _ =>
+      isDark
+          ? [const Color(0xFF9AB4FF), const Color(0xFF6FA0FF)]
+          : [const Color(0xFF4E6BDB), const Color(0xFF3F8AF1)],
+  };
+}
+
+class _BackgroundOrbLayer extends StatelessWidget {
+  const _BackgroundOrbLayer({
+    required this.topRightJitter,
+    required this.bottomLeftJitter,
+    required this.orbColors,
+    required this.viewportState,
+  });
+
+  final Offset topRightJitter;
+  final Offset bottomLeftJitter;
+  final List<Color> orbColors;
+  final WheelViewportState? viewportState;
+
+  @override
+  Widget build(BuildContext context) {
+    final viewport = viewportState;
+    final scale = (viewport?.scale ?? 1.0).clamp(
+      1.0,
+      WheelUiTuning.wheelMaxScale,
+    );
+    final translateX = viewport?.translateX ?? 0;
+    final translateY = viewport?.translateY ?? 0;
+    return IgnorePointer(
+      child: Transform.translate(
+        offset: Offset(translateX, translateY),
+        child: Transform.scale(
+          alignment: Alignment.center,
+          scale: scale,
+          child: Stack(
+            children: [
+              Positioned(
+                top: -80 + topRightJitter.dy,
+                right: -40 + topRightJitter.dx,
+                child: _BackgroundOrb(size: 200, color: orbColors[0]),
+              ),
+              Positioned(
+                bottom: 78 + bottomLeftJitter.dy,
+                left: -50 + bottomLeftJitter.dx,
+                child: _BackgroundOrb(
+                  size: 150,
+                  color: orbColors[1],
+                  edgeTightness: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BackgroundOrb extends StatelessWidget {
+  const _BackgroundOrb({
+    required this.size,
+    required this.color,
+    this.edgeTightness = 0,
+  });
+
+  final double size;
+  final Color color;
+  final double edgeTightness;
+
+  @override
+  Widget build(BuildContext context) {
+    final tightness = edgeTightness.clamp(0.0, 1.0);
+    final useSharperEdge = tightness > 0;
     return IgnorePointer(
       child: Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
+          gradient: useSharperEdge
+              ? RadialGradient(
+                  colors: [
+                    color,
+                    color.withValues(alpha: color.a * (0.42 + tightness * 0.2)),
+                    color.withValues(alpha: 0),
+                  ],
+                  stops: [0.0, 0.68 + tightness * 0.18, 1.0],
+                )
+              : RadialGradient(colors: [color, color.withValues(alpha: 0)]),
         ),
       ),
     );

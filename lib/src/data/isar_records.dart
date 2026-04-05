@@ -15,6 +15,9 @@ class WheelRecord {
 
   int spinDurationMs = 4800;
   String palette = 'random';
+  String? backgroundImagePath;
+  double backgroundImageOpacity = 0.32;
+  double backgroundImageBlurSigma = 0;
   late DateTime createdAt;
   late DateTime updatedAt;
 }

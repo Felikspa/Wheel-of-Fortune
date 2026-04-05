@@ -49,6 +49,9 @@ class IsarWheelRepository implements WheelRepository {
       ..probabilityMode = ProbabilityMode.equal
       ..spinDurationMs = 4800
       ..palette = 'random'
+      ..backgroundImagePath = null
+      ..backgroundImageOpacity = 0.32
+      ..backgroundImageBlurSigma = 0
       ..createdAt = now
       ..updatedAt = now;
     await _db.writeTxn(() async {
@@ -65,6 +68,9 @@ class IsarWheelRepository implements WheelRepository {
       ..probabilityMode = wheel.probabilityMode
       ..spinDurationMs = wheel.spinDurationMs
       ..palette = wheel.palette
+      ..backgroundImagePath = wheel.backgroundImagePath
+      ..backgroundImageOpacity = wheel.backgroundImageOpacity
+      ..backgroundImageBlurSigma = wheel.backgroundImageBlurSigma
       ..createdAt = wheel.createdAt
       ..updatedAt = wheel.updatedAt;
     await _db.writeTxn(() async {
@@ -207,6 +213,9 @@ class IsarWheelRepository implements WheelRepository {
       probabilityMode: wheel.probabilityMode,
       spinDurationMs: wheel.spinDurationMs,
       palette: wheel.palette,
+      backgroundImagePath: wheel.backgroundImagePath,
+      backgroundImageOpacity: wheel.backgroundImageOpacity,
+      backgroundImageBlurSigma: wheel.backgroundImageBlurSigma,
       createdAt: wheel.createdAt,
       updatedAt: wheel.updatedAt,
       items: items

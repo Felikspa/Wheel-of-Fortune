@@ -47,7 +47,8 @@ class CoinSelectionResolution {
   final bool autoFilled;
   final CoinSelectionIssue? issue;
 
-  bool get canToss => issue == null && firstItemId != null && secondItemId != null;
+  bool get canToss =>
+      issue == null && firstItemId != null && secondItemId != null;
 }
 
 class DiceMappingValidation {
@@ -67,10 +68,51 @@ class DiceMappingValidation {
 }
 
 class DiceRollResult {
-  const DiceRollResult({required this.winnerItemId, required this.winnerFaceIndex});
+  const DiceRollResult({
+    required this.winnerItemId,
+    required this.winnerFaceIndex,
+  });
 
   final int winnerItemId;
   final int winnerFaceIndex;
+}
+
+class WheelViewportState {
+  const WheelViewportState({
+    required this.rotation,
+    required this.scale,
+    required this.translateX,
+    required this.translateY,
+    required this.glowAx,
+    required this.glowAy,
+    required this.glowBx,
+    required this.glowBy,
+    required this.glowScaleA,
+    required this.glowScaleB,
+    required this.sliceSheenX,
+    required this.sliceSheenY,
+    required this.sliceDepthX,
+    required this.sliceDepthY,
+    required this.sliceSheenIntensity,
+    required this.sliceDepthIntensity,
+  });
+
+  final double rotation;
+  final double scale;
+  final double translateX;
+  final double translateY;
+  final double glowAx;
+  final double glowAy;
+  final double glowBx;
+  final double glowBy;
+  final double glowScaleA;
+  final double glowScaleB;
+  final double sliceSheenX;
+  final double sliceSheenY;
+  final double sliceDepthX;
+  final double sliceDepthY;
+  final double sliceSheenIntensity;
+  final double sliceDepthIntensity;
 }
 
 class AppController extends ChangeNotifier {
@@ -90,6 +132,7 @@ class AppController extends ChangeNotifier {
   final WheelRepository _repository;
   final SpinEngine _spinEngine;
   final WheelCodec _wheelCodec;
+  final ValueNotifier<int> _wheelViewportRevision = ValueNotifier<int>(0);
 
   bool _loading = true;
   bool _spinning = false;
@@ -100,6 +143,7 @@ class AppController extends ChangeNotifier {
   final Map<int, List<int>> _recentWinnerIdsByWheel = {};
   final Map<String, List<int>> _recentWinnerIdsByWheelAndMode = {};
   final Map<int, Map<DrawDisplayMode, int>> _winnerItemIdsByWheelAndMode = {};
+  final Map<int, WheelViewportState> _wheelViewportByWheelId = {};
 
   bool get loading => _loading;
   bool get spinning => _spinning;
@@ -108,6 +152,7 @@ class AppController extends ChangeNotifier {
   List<WheelModel> get wheels => _wheels;
   int? get selectedWheelId => _selectedWheelId;
   AppSettingsModel get settings => _settings;
+  ValueListenable<int> get wheelViewportRevision => _wheelViewportRevision;
 
   WheelModel? get selectedWheel {
     final wheelId = _selectedWheelId;
@@ -133,6 +178,13 @@ class AppController extends ChangeNotifier {
   int? get winnerItemId => winnerItemIdForMode(DrawDisplayMode.wheel);
 
   WheelItemModel? get winnerItem => winnerItemForMode(DrawDisplayMode.wheel);
+
+  WheelViewportState? wheelViewportStateForWheel(int? wheelId) {
+    if (wheelId == null) {
+      return null;
+    }
+    return _wheelViewportByWheelId[wheelId];
+  }
 
   int get selectedDiceSidesForSelectedWheel {
     final wheelId = _selectedWheelId;
@@ -181,18 +233,34 @@ class AppController extends ChangeNotifier {
     ProbabilityMode? mode,
     int? spinDurationMs,
     String? palette,
+    String? backgroundImagePath,
+    bool clearBackgroundImagePath = false,
+    double? backgroundImageOpacity,
+    double? backgroundImageBlurSigma,
   }) async {
-    final wheel = _wheels.firstWhere((entry) => entry.id == wheelId);
-    await _repository.saveWheel(
-      wheel.copyWith(
-        name: name ?? wheel.name,
-        probabilityMode: mode ?? wheel.probabilityMode,
-        spinDurationMs: spinDurationMs ?? wheel.spinDurationMs,
-        palette: palette ?? wheel.palette,
-        updatedAt: DateTime.now(),
-      ),
+    final index = _wheels.indexWhere((entry) => entry.id == wheelId);
+    if (index < 0) {
+      return;
+    }
+    final wheel = _wheels[index];
+    final updatedWheel = wheel.copyWith(
+      name: name ?? wheel.name,
+      probabilityMode: mode ?? wheel.probabilityMode,
+      spinDurationMs: spinDurationMs ?? wheel.spinDurationMs,
+      palette: palette ?? wheel.palette,
+      backgroundImagePath: backgroundImagePath,
+      clearBackgroundImagePath: clearBackgroundImagePath,
+      backgroundImageOpacity: backgroundImageOpacity,
+      backgroundImageBlurSigma: backgroundImageBlurSigma,
+      updatedAt: DateTime.now(),
     );
-    await _reloadWheels();
+    await _repository.saveWheel(updatedWheel);
+    _wheels[index] = updatedWheel;
+    notifyListeners();
+    debugPrint(
+      'updateWheelConfig wheelId=$wheelId backgroundImagePath=${updatedWheel.backgroundImagePath} '
+      'opacity=${updatedWheel.backgroundImageOpacity} blur=${updatedWheel.backgroundImageBlurSigma}',
+    );
   }
 
   Future<void> deleteWheel(int wheelId) async {
@@ -200,9 +268,83 @@ class AppController extends ChangeNotifier {
     _recentWinnerIdsByWheel.remove(wheelId);
     _removeModeHistoryForWheel(wheelId);
     _winnerItemIdsByWheelAndMode.remove(wheelId);
+    _wheelViewportByWheelId.remove(wheelId);
     _settings = _settings.withoutWheelScopedSettings(wheelId);
     await _repository.saveSettings(_settings);
     await _reloadWheels();
+  }
+
+  void cacheWheelViewportState({
+    required int wheelId,
+    required double rotation,
+    required double scale,
+    required double translateX,
+    required double translateY,
+    required double glowAx,
+    required double glowAy,
+    required double glowBx,
+    required double glowBy,
+    required double glowScaleA,
+    required double glowScaleB,
+    required double sliceSheenX,
+    required double sliceSheenY,
+    required double sliceDepthX,
+    required double sliceDepthY,
+    required double sliceSheenIntensity,
+    required double sliceDepthIntensity,
+  }) {
+    final normalized = WheelViewportState(
+      rotation: rotation.isFinite ? rotation : 0,
+      scale: scale.isFinite ? scale : 1.0,
+      translateX: translateX.isFinite ? translateX : 0,
+      translateY: translateY.isFinite ? translateY : 0,
+      glowAx: glowAx.isFinite ? glowAx : -0.58,
+      glowAy: glowAy.isFinite ? glowAy : -0.56,
+      glowBx: glowBx.isFinite ? glowBx : 0.48,
+      glowBy: glowBy.isFinite ? glowBy : 0.54,
+      glowScaleA: glowScaleA.isFinite ? glowScaleA : 0.86,
+      glowScaleB: glowScaleB.isFinite ? glowScaleB : 0.94,
+      sliceSheenX: sliceSheenX.isFinite ? sliceSheenX : -0.16,
+      sliceSheenY: sliceSheenY.isFinite ? sliceSheenY : -0.12,
+      sliceDepthX: sliceDepthX.isFinite ? sliceDepthX : 0.2,
+      sliceDepthY: sliceDepthY.isFinite ? sliceDepthY : 0.16,
+      sliceSheenIntensity: sliceSheenIntensity.isFinite
+          ? sliceSheenIntensity
+          : 1.0,
+      sliceDepthIntensity: sliceDepthIntensity.isFinite
+          ? sliceDepthIntensity
+          : 1.0,
+    );
+    final previous = _wheelViewportByWheelId[wheelId];
+    if (previous != null &&
+        (previous.rotation - normalized.rotation).abs() < 0.0005 &&
+        (previous.scale - normalized.scale).abs() < 0.0005 &&
+        (previous.translateX - normalized.translateX).abs() < 0.05 &&
+        (previous.translateY - normalized.translateY).abs() < 0.05 &&
+        (previous.glowAx - normalized.glowAx).abs() < 0.0005 &&
+        (previous.glowAy - normalized.glowAy).abs() < 0.0005 &&
+        (previous.glowBx - normalized.glowBx).abs() < 0.0005 &&
+        (previous.glowBy - normalized.glowBy).abs() < 0.0005 &&
+        (previous.glowScaleA - normalized.glowScaleA).abs() < 0.0005 &&
+        (previous.glowScaleB - normalized.glowScaleB).abs() < 0.0005 &&
+        (previous.sliceSheenX - normalized.sliceSheenX).abs() < 0.0005 &&
+        (previous.sliceSheenY - normalized.sliceSheenY).abs() < 0.0005 &&
+        (previous.sliceDepthX - normalized.sliceDepthX).abs() < 0.0005 &&
+        (previous.sliceDepthY - normalized.sliceDepthY).abs() < 0.0005 &&
+        (previous.sliceSheenIntensity - normalized.sliceSheenIntensity).abs() <
+            0.0005 &&
+        (previous.sliceDepthIntensity - normalized.sliceDepthIntensity).abs() <
+            0.0005) {
+      return;
+    }
+    _wheelViewportByWheelId[wheelId] = normalized;
+    _wheelViewportRevision.value++;
+  }
+
+  @override
+  void dispose() {
+    _wheelViewportRevision.dispose();
+    super.dispose();
   }
 
   void selectWheel(int wheelId) {
@@ -252,7 +394,8 @@ class AppController extends ChangeNotifier {
     }
     final capped = items.take(maxItemsPerWheel).toList();
     final normalized = [
-      for (var i = 0; i < capped.length; i++) capped[i].copyWith(wheelId: wheel.id, order: i),
+      for (var i = 0; i < capped.length; i++)
+        capped[i].copyWith(wheelId: wheel.id, order: i),
     ];
     await _repository.saveItems(wheel.id, normalized);
     await _reloadWheels();
@@ -275,7 +418,9 @@ class AppController extends ChangeNotifier {
     if (wheel == null) {
       return;
     }
-    final updated = wheel.items.map((entry) => entry.id == item.id ? item : entry).toList();
+    final updated = wheel.items
+        .map((entry) => entry.id == item.id ? item : entry)
+        .toList();
     await saveCurrentWheelItems(updated);
   }
 
@@ -285,7 +430,11 @@ class AppController extends ChangeNotifier {
       return;
     }
     final updated = [...wheel.items];
-    updated[index] = item.copyWith(id: wheel.items[index].id, wheelId: wheel.id, order: index);
+    updated[index] = item.copyWith(
+      id: wheel.items[index].id,
+      wheelId: wheel.id,
+      order: index,
+    );
     await saveCurrentWheelItems(updated);
   }
 
@@ -327,8 +476,15 @@ class AppController extends ChangeNotifier {
     _spinning = false;
     final wheelId = _selectedWheelId;
     if (wheelId != null) {
-      _setModeWinnerItemId(wheelId, DrawDisplayMode.wheel, outcome.winnerItemId);
-      final history = [...?_recentWinnerIdsByWheel[wheelId], outcome.winnerItemId];
+      _setModeWinnerItemId(
+        wheelId,
+        DrawDisplayMode.wheel,
+        outcome.winnerItemId,
+      );
+      final history = [
+        ...?_recentWinnerIdsByWheel[wheelId],
+        outcome.winnerItemId,
+      ];
       if (history.length > softModeWindowSize) {
         history.removeRange(0, history.length - softModeWindowSize);
       }
@@ -366,8 +522,12 @@ class AppController extends ChangeNotifier {
     final wheelId = wheel.id;
     final coinSettings = _settings.coinSettingsForWheel(wheelId);
     final validIds = wheel.items.map((item) => item.id).toSet();
-    final first = validIds.contains(coinSettings.firstItemId) ? coinSettings.firstItemId : null;
-    final second = validIds.contains(coinSettings.secondItemId) ? coinSettings.secondItemId : null;
+    final first = validIds.contains(coinSettings.firstItemId)
+        ? coinSettings.firstItemId
+        : null;
+    final second = validIds.contains(coinSettings.secondItemId)
+        ? coinSettings.secondItemId
+        : null;
 
     if (first != null && second != null) {
       if (first == second) {
@@ -424,7 +584,9 @@ class AppController extends ChangeNotifier {
     }
     final current = _settings.coinSettingsForWheel(wheelId);
     final partners = {...current.lastPartnerByItemId};
-    if (firstItemId != null && secondItemId != null && firstItemId != secondItemId) {
+    if (firstItemId != null &&
+        secondItemId != null &&
+        firstItemId != secondItemId) {
       partners[firstItemId] = secondItemId;
       partners[secondItemId] = firstItemId;
     }
@@ -440,7 +602,10 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  int? tossCoinForSelectedWheel({required int firstItemId, required int secondItemId}) {
+  int? tossCoinForSelectedWheel({
+    required int firstItemId,
+    required int secondItemId,
+  }) {
     final wheel = selectedWheel;
     if (wheel == null || busy || firstItemId == secondItemId) {
       return null;
@@ -471,7 +636,10 @@ class AppController extends ChangeNotifier {
           ? List<int?>.filled(sides, null)
           : _seedDiceMappingFromRecent(recent, sides);
     }
-    final next = current.copyWith(selectedSides: sides, mappingsBySides: mappings);
+    final next = current.copyWith(
+      selectedSides: sides,
+      mappingsBySides: mappings,
+    );
     _settings = _settings.withDiceSettingsForWheel(wheelId, next);
     await _repository.saveSettings(_settings);
     notifyListeners();
@@ -514,7 +682,10 @@ class AppController extends ChangeNotifier {
     }
     mapping[faceIndex] = itemId;
     mappings[sides] = mapping;
-    final next = current.copyWith(selectedSides: sides, mappingsBySides: mappings);
+    final next = current.copyWith(
+      selectedSides: sides,
+      mappingsBySides: mappings,
+    );
     _settings = _settings.withDiceSettingsForWheel(wheelId, next);
     await _repository.saveSettings(_settings);
     notifyListeners();
@@ -580,7 +751,11 @@ class AppController extends ChangeNotifier {
     final outcome = _spinEngine.spin(
       mappedItems,
       wheel.probabilityMode,
-      recentWinnerItemIds: _recentWinnerIdsByWheelAndMode[_historyKey(wheel.id, DrawDisplayMode.dice)] ??
+      recentWinnerItemIds:
+          _recentWinnerIdsByWheelAndMode[_historyKey(
+            wheel.id,
+            DrawDisplayMode.dice,
+          )] ??
           const [],
     );
 
@@ -637,7 +812,11 @@ class AppController extends ChangeNotifier {
     final outcome = _spinEngine.spin(
       candidates,
       wheel.probabilityMode,
-      recentWinnerItemIds: _recentWinnerIdsByWheelAndMode[_historyKey(wheel.id, DrawDisplayMode.card)] ??
+      recentWinnerItemIds:
+          _recentWinnerIdsByWheelAndMode[_historyKey(
+            wheel.id,
+            DrawDisplayMode.card,
+          )] ??
           const [],
     );
 
@@ -662,7 +841,11 @@ class AppController extends ChangeNotifier {
   Future<ImportSummary> importFromCode(String text) async {
     final parsed = _wheelCodec.importWheel(text);
     if (parsed.items.isEmpty) {
-      return ImportSummary(created: false, validItems: 0, errors: parsed.errors);
+      return ImportSummary(
+        created: false,
+        validItems: 0,
+        errors: parsed.errors,
+      );
     }
     final created = await _repository.createWheel(parsed.name);
     final configured = created.copyWith(
@@ -679,13 +862,23 @@ class AppController extends ChangeNotifier {
     await _reloadWheels(notify: false);
     _selectedWheelId = created.id;
     notifyListeners();
-    return ImportSummary(created: true, validItems: parsed.items.length, errors: parsed.errors);
+    return ImportSummary(
+      created: true,
+      validItems: parsed.items.length,
+      errors: parsed.errors,
+    );
   }
 
-  Future<QuickItemsImportSummary> quickImportItemsToCurrentWheel(String text) async {
+  Future<QuickItemsImportSummary> quickImportItemsToCurrentWheel(
+    String text,
+  ) async {
     final wheel = selectedWheel;
     if (wheel == null) {
-      return const QuickItemsImportSummary(importedItems: 0, skippedByLimit: 0, errors: []);
+      return const QuickItemsImportSummary(
+        importedItems: 0,
+        skippedByLimit: 0,
+        errors: [],
+      );
     }
 
     final parsed = _wheelCodec.importQuickItems(text);
@@ -710,7 +903,10 @@ class AppController extends ChangeNotifier {
     final nextItems = [
       ...wheel.items,
       for (var i = 0; i < importItems.length; i++)
-        importItems[i].copyWith(wheelId: wheel.id, order: wheel.items.length + i),
+        importItems[i].copyWith(
+          wheelId: wheel.id,
+          order: wheel.items.length + i,
+        ),
     ];
     await saveCurrentWheelItems(nextItems);
     return QuickItemsImportSummary(
@@ -735,15 +931,18 @@ class AppController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _reloadWheels({bool createDefaultIfEmpty = false, bool notify = true}) async {
-    _wheels = await _repository.loadWheels();
+  Future<void> _reloadWheels({
+    bool createDefaultIfEmpty = false,
+    bool notify = true,
+  }) async {
+    _wheels = List<WheelModel>.from(await _repository.loadWheels());
     if (_wheels.isEmpty && createDefaultIfEmpty) {
       final created = await _repository.createWheel('Wheel 1');
       await _repository.saveItems(created.id, const [
         WheelItemModel(id: 0, wheelId: 0, order: 0, title: 'Option A'),
         WheelItemModel(id: 0, wheelId: 0, order: 1, title: 'Option B'),
       ]);
-      _wheels = await _repository.loadWheels();
+      _wheels = List<WheelModel>.from(await _repository.loadWheels());
     }
 
     if (_wheels.isEmpty) {
@@ -757,6 +956,16 @@ class AppController extends ChangeNotifier {
     final selectedExists = _wheels.any((wheel) => wheel.id == _selectedWheelId);
     if (!selectedExists) {
       _selectedWheelId = _wheels.first.id;
+    }
+    final existingWheelIds = {for (final wheel in _wheels) wheel.id};
+    final staleViewportKeys = <int>[];
+    for (final wheelId in _wheelViewportByWheelId.keys) {
+      if (!existingWheelIds.contains(wheelId)) {
+        staleViewportKeys.add(wheelId);
+      }
+    }
+    for (final wheelId in staleViewportKeys) {
+      _wheelViewportByWheelId.remove(wheelId);
     }
     if (notify) {
       notifyListeners();
@@ -789,7 +998,8 @@ class AppController extends ChangeNotifier {
     }
   }
 
-  String _historyKey(int wheelId, DrawDisplayMode mode) => '$wheelId:${mode.name}';
+  String _historyKey(int wheelId, DrawDisplayMode mode) =>
+      '$wheelId:${mode.name}';
 
   void _pushModeHistory({
     required int wheelId,

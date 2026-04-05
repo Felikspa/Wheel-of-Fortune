@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -59,6 +60,7 @@ class WheelCanvas extends StatelessWidget {
               height: size,
               child: CustomPaint(
                 size: Size.square(size),
+                isComplex: true,
                 painter: _WheelPainter(
                   wheel: wheel,
                   rotation: rotation,
@@ -128,6 +130,12 @@ class _WheelPainter extends CustomPainter {
   final Alignment materialDepthCenter;
   final double materialSheenIntensity;
   final double materialDepthIntensity;
+  static const int _sliceColorCacheLimit = 24;
+  static const int _slicePictureCacheLimit = 14;
+  static const int _labelPainterCacheLimit = 2200;
+  static final Map<_SliceColorCacheKey, List<Color>> _sliceColorCache = {};
+  static final Map<_SlicePictureCacheKey, ui.Picture> _slicePictureCache = {};
+  static final Map<_LabelPainterCacheKey, TextPainter> _labelPainterCache = {};
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -156,147 +164,34 @@ class _WheelPainter extends CustomPainter {
       return;
     }
 
-    final sliceColors = _buildSliceColors(slices, wheel.palette, isDark);
-    final wedge = (2 * pi) / slices.length;
+    final itemVisualSignature = _buildItemVisualSignature(slices);
+    final sliceColors = _resolveSliceColors(slices, wheel.palette, isDark);
     final labelPolicy = _buildLabelPolicy(
       itemCount: slices.length,
       wheelRadius: wheelRadius,
-      wedge: wedge,
+      wedge: (2 * pi) / slices.length,
       zoom: zoom,
     );
     final clampedSheenIntensity = materialSheenIntensity.clamp(0.6, 1.3);
     final clampedDepthIntensity = materialDepthIntensity.clamp(0.6, 1.2);
-    final materialSheenPaint = Paint()
-      ..shader = RadialGradient(
-        center: materialSheenCenter,
-        radius: 0.86,
-        colors: [
-          Colors.white.withValues(
-            alpha: (isDark ? 0.08 : 0.16) * clampedSheenIntensity,
-          ),
-          Colors.white.withValues(
-            alpha: (isDark ? 0.02 : 0.06) * clampedSheenIntensity,
-          ),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.34, 1.0],
-      ).createShader(wheelRect);
-    final depthPaint = Paint()
-      ..shader = RadialGradient(
-        center: materialDepthCenter,
-        radius: 0.98,
-        colors: [
-          Colors.transparent,
-          Colors.black.withValues(
-            alpha: (isDark ? 0.04 : 0.028) * clampedDepthIntensity,
-          ),
-        ],
-        stops: const [0.62, 1.0],
-      ).createShader(wheelRect);
-    final liquidFlowPaint = Paint()
-      ..blendMode = BlendMode.softLight
-      ..shader = LinearGradient(
-        begin: Alignment(
-          materialSheenCenter.x * 0.95,
-          materialSheenCenter.y * 0.95,
-        ),
-        end: Alignment(
-          -materialSheenCenter.x * 0.75,
-          -materialSheenCenter.y * 0.75,
-        ),
-        colors: [
-          Colors.white.withValues(
-            alpha: (isDark ? 0.08 : 0.12) * clampedSheenIntensity,
-          ),
-          Colors.white.withValues(
-            alpha: (isDark ? 0.018 : 0.035) * clampedSheenIntensity,
-          ),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.38, 1.0],
-      ).createShader(wheelRect);
-
-    for (var i = 0; i < slices.length; i++) {
-      final item = slices[i];
-      final start = (-pi / 2) + rotation + (i * wedge);
-      final base = sliceColors[i];
-      final paint = Paint()
-        ..color = base.withValues(alpha: isDark ? 0.72 : 0.66);
-      canvas.drawArc(wheelRect, start, wedge, true, paint);
-      canvas.drawArc(wheelRect, start, wedge, true, materialSheenPaint);
-      canvas.drawArc(wheelRect, start, wedge, true, depthPaint);
-      canvas.drawArc(wheelRect, start, wedge, true, liquidFlowPaint);
-
-      final gloss = Paint()
-        ..color = Colors.white.withValues(alpha: isDark ? 0.015 : 0.04)
-        ..style = PaintingStyle.fill;
-      canvas.drawArc(wheelRect, start, wedge, true, gloss);
-
-      if (winnerItemId != null && winnerItemId == item.id) {
-        final highlight = Paint()
-          ..color = Colors.white.withValues(alpha: isDark ? 0.14 : 0.28);
-        canvas.drawArc(wheelRect, start, wedge, true, highlight);
-      }
-
-      if (labelPolicy.show) {
-        final labelAngle = start + (wedge / 2);
-        final labelOffset = Offset(
-          center.dx + cos(labelAngle) * labelPolicy.radius,
-          center.dy + sin(labelAngle) * labelPolicy.radius,
-        );
-        final text = _fitTitleForPolicy(
-          item.title.trim(),
-          maxChars: labelPolicy.maxChars,
-          singleCharOnly: labelPolicy.singleCharOnly,
-        );
-        if (text.isNotEmpty) {
-          final textPainter = TextPainter(
-            text: TextSpan(
-              text: text,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.96),
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.2,
-                fontSize: labelPolicy.fontSize,
-                shadows: [
-                  Shadow(
-                    blurRadius: 8,
-                    color: Colors.black.withValues(alpha: 0.45),
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-            ),
-            textDirection: TextDirection.ltr,
-            maxLines: labelPolicy.maxLines,
-            ellipsis: labelPolicy.showEllipsis ? '…' : null,
-          )..layout(maxWidth: labelPolicy.maxWidth);
-          final textRotation = labelAngle;
-          canvas.save();
-          canvas.translate(labelOffset.dx, labelOffset.dy);
-          canvas.rotate(textRotation);
-          textPainter.paint(
-            canvas,
-            Offset(-textPainter.width / 2, -textPainter.height / 2),
-          );
-          canvas.restore();
-        }
-      }
-    }
-
-    final dividerPaint = Paint()
-      ..color = Colors.white.withValues(alpha: isDark ? 0.24 : 0.56)
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-    for (var i = 0; i < slices.length; i++) {
-      final angle = (-pi / 2) + rotation + (i * wedge);
-      final p1 = Offset(center.dx + cos(angle) * 0, center.dy + sin(angle) * 0);
-      final p2 = Offset(
-        center.dx + cos(angle) * wheelRadius,
-        center.dy + sin(angle) * wheelRadius,
-      );
-      canvas.drawLine(p1, p2, dividerPaint);
-    }
+    final slicesPicture = _resolveSlicePicture(
+      center: center,
+      wheelRect: wheelRect,
+      wheelRadius: wheelRadius,
+      slices: slices,
+      isDark: isDark,
+      labelPolicy: labelPolicy,
+      sliceColors: sliceColors,
+      itemVisualSignature: itemVisualSignature,
+      clampedSheenIntensity: clampedSheenIntensity,
+      clampedDepthIntensity: clampedDepthIntensity,
+    );
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(rotation);
+    canvas.translate(-center.dx, -center.dy);
+    canvas.drawPicture(slicesPicture);
+    canvas.restore();
 
     _drawCenterHub(canvas, center, wheelRadius, isDark, hubAccentColor);
     _drawMiniPointer(
@@ -450,6 +345,264 @@ class _WheelPainter extends CustomPainter {
     return String.fromCharCodes(
       runes.take(maxChars + WheelUiTuning.preTrimExtraChars),
     );
+  }
+
+  int _buildItemVisualSignature(List<WheelItemModel> items) {
+    var signature = items.length;
+    for (final item in items) {
+      signature = Object.hash(signature, item.id, item.title, item.colorHex);
+    }
+    return signature;
+  }
+
+  ui.Picture _resolveSlicePicture({
+    required Offset center,
+    required Rect wheelRect,
+    required double wheelRadius,
+    required List<WheelItemModel> slices,
+    required bool isDark,
+    required _LabelPolicy labelPolicy,
+    required List<Color> sliceColors,
+    required int itemVisualSignature,
+    required double clampedSheenIntensity,
+    required double clampedDepthIntensity,
+  }) {
+    final key = _SlicePictureCacheKey(
+      wheelId: wheel.id,
+      palette: wheel.palette,
+      isDark: isDark,
+      winnerItemId: winnerItemId ?? -1,
+      itemCount: slices.length,
+      itemVisualSignature: itemVisualSignature,
+      wheelRadiusMetric: _cacheMetric(wheelRadius),
+      labelFontSizeMetric: _cacheMetric(labelPolicy.fontSize),
+      labelRadiusMetric: _cacheMetric(labelPolicy.radius),
+      labelMaxWidthMetric: _cacheMetric(labelPolicy.maxWidth),
+      labelMaxChars: labelPolicy.maxChars,
+      labelMaxLines: labelPolicy.maxLines,
+      labelSingleCharOnly: labelPolicy.singleCharOnly,
+      labelShowEllipsis: labelPolicy.showEllipsis,
+      materialSheenXMetric: _cacheMetric(materialSheenCenter.x),
+      materialSheenYMetric: _cacheMetric(materialSheenCenter.y),
+      materialDepthXMetric: _cacheMetric(materialDepthCenter.x),
+      materialDepthYMetric: _cacheMetric(materialDepthCenter.y),
+      materialSheenIntensityMetric: _cacheMetric(clampedSheenIntensity),
+      materialDepthIntensityMetric: _cacheMetric(clampedDepthIntensity),
+    );
+    final cached = _slicePictureCache[key];
+    if (cached != null) {
+      return cached;
+    }
+
+    final recorder = ui.PictureRecorder();
+    final pictureCanvas = Canvas(recorder);
+    final wedge = (2 * pi) / slices.length;
+    final materialSheenPaint = Paint()
+      ..shader = RadialGradient(
+        center: materialSheenCenter,
+        radius: 0.86,
+        colors: [
+          Colors.white.withValues(
+            alpha: (isDark ? 0.08 : 0.16) * clampedSheenIntensity,
+          ),
+          Colors.white.withValues(
+            alpha: (isDark ? 0.02 : 0.06) * clampedSheenIntensity,
+          ),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.34, 1.0],
+      ).createShader(wheelRect);
+    final depthPaint = Paint()
+      ..shader = RadialGradient(
+        center: materialDepthCenter,
+        radius: 0.98,
+        colors: [
+          Colors.transparent,
+          Colors.black.withValues(
+            alpha: (isDark ? 0.04 : 0.028) * clampedDepthIntensity,
+          ),
+        ],
+        stops: const [0.62, 1.0],
+      ).createShader(wheelRect);
+    final liquidFlowPaint = Paint()
+      ..blendMode = BlendMode.softLight
+      ..shader = LinearGradient(
+        begin: Alignment(
+          materialSheenCenter.x * 0.95,
+          materialSheenCenter.y * 0.95,
+        ),
+        end: Alignment(
+          -materialSheenCenter.x * 0.75,
+          -materialSheenCenter.y * 0.75,
+        ),
+        colors: [
+          Colors.white.withValues(
+            alpha: (isDark ? 0.08 : 0.12) * clampedSheenIntensity,
+          ),
+          Colors.white.withValues(
+            alpha: (isDark ? 0.018 : 0.035) * clampedSheenIntensity,
+          ),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.38, 1.0],
+      ).createShader(wheelRect);
+    final baseSlicePaint = Paint();
+    final glossPaint = Paint()
+      ..color = Colors.white.withValues(alpha: isDark ? 0.015 : 0.04)
+      ..style = PaintingStyle.fill;
+    final highlightPaint = Paint()
+      ..color = Colors.white.withValues(alpha: isDark ? 0.14 : 0.28);
+
+    for (var i = 0; i < slices.length; i++) {
+      final item = slices[i];
+      final start = (-pi / 2) + (i * wedge);
+      final base = sliceColors[i];
+      baseSlicePaint.color = base.withValues(alpha: isDark ? 0.72 : 0.66);
+      pictureCanvas.drawArc(wheelRect, start, wedge, true, baseSlicePaint);
+      pictureCanvas.drawArc(wheelRect, start, wedge, true, materialSheenPaint);
+      pictureCanvas.drawArc(wheelRect, start, wedge, true, depthPaint);
+      pictureCanvas.drawArc(wheelRect, start, wedge, true, liquidFlowPaint);
+      pictureCanvas.drawArc(wheelRect, start, wedge, true, glossPaint);
+
+      if (winnerItemId != null && winnerItemId == item.id) {
+        pictureCanvas.drawArc(wheelRect, start, wedge, true, highlightPaint);
+      }
+
+      if (labelPolicy.show) {
+        final labelAngle = start + (wedge / 2);
+        final labelOffset = Offset(
+          center.dx + cos(labelAngle) * labelPolicy.radius,
+          center.dy + sin(labelAngle) * labelPolicy.radius,
+        );
+        final textPainter = _resolveLabelPainter(
+          item: item,
+          labelPolicy: labelPolicy,
+          isDark: isDark,
+        );
+        if (textPainter != null) {
+          pictureCanvas.save();
+          pictureCanvas.translate(labelOffset.dx, labelOffset.dy);
+          pictureCanvas.rotate(labelAngle);
+          textPainter.paint(
+            pictureCanvas,
+            Offset(-textPainter.width / 2, -textPainter.height / 2),
+          );
+          pictureCanvas.restore();
+        }
+      }
+    }
+
+    final dividerPaint = Paint()
+      ..color = Colors.white.withValues(alpha: isDark ? 0.24 : 0.56)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    for (var i = 0; i < slices.length; i++) {
+      final angle = (-pi / 2) + (i * wedge);
+      final p2 = Offset(
+        center.dx + cos(angle) * wheelRadius,
+        center.dy + sin(angle) * wheelRadius,
+      );
+      pictureCanvas.drawLine(center, p2, dividerPaint);
+    }
+
+    final picture = recorder.endRecording();
+    if (_slicePictureCache.length >= _slicePictureCacheLimit) {
+      _slicePictureCache.remove(_slicePictureCache.keys.first);
+    }
+    _slicePictureCache[key] = picture;
+    return picture;
+  }
+
+  List<Color> _resolveSliceColors(
+    List<WheelItemModel> items,
+    String palette,
+    bool isDark,
+  ) {
+    var itemColorSignature = items.length;
+    for (final item in items) {
+      itemColorSignature = Object.hash(
+        itemColorSignature,
+        item.id,
+        item.colorHex,
+      );
+    }
+    final key = _SliceColorCacheKey(
+      wheelId: wheel.id,
+      palette: palette,
+      isDark: isDark,
+      itemCount: items.length,
+      itemColorSignature: itemColorSignature,
+    );
+    final cached = _sliceColorCache[key];
+    if (cached != null) {
+      return cached;
+    }
+    final generated = _buildSliceColors(items, palette, isDark);
+    if (_sliceColorCache.length >= _sliceColorCacheLimit) {
+      _sliceColorCache.remove(_sliceColorCache.keys.first);
+    }
+    _sliceColorCache[key] = generated;
+    return generated;
+  }
+
+  TextPainter? _resolveLabelPainter({
+    required WheelItemModel item,
+    required _LabelPolicy labelPolicy,
+    required bool isDark,
+  }) {
+    final text = _fitTitleForPolicy(
+      item.title.trim(),
+      maxChars: labelPolicy.maxChars,
+      singleCharOnly: labelPolicy.singleCharOnly,
+    );
+    if (text.isEmpty) {
+      return null;
+    }
+    final key = _LabelPainterCacheKey(
+      itemId: item.id,
+      title: text,
+      maxChars: labelPolicy.maxChars,
+      singleCharOnly: labelPolicy.singleCharOnly,
+      fontSizeMetric: _cacheMetric(labelPolicy.fontSize),
+      maxWidthMetric: _cacheMetric(labelPolicy.maxWidth),
+      maxLines: labelPolicy.maxLines,
+      showEllipsis: labelPolicy.showEllipsis,
+      isDark: isDark,
+    );
+    final cached = _labelPainterCache[key];
+    if (cached != null) {
+      return cached;
+    }
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.96),
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+          fontSize: labelPolicy.fontSize,
+          shadows: [
+            Shadow(
+              blurRadius: 8,
+              color: Colors.black.withValues(alpha: 0.45),
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: labelPolicy.maxLines,
+      ellipsis: labelPolicy.showEllipsis ? '…' : null,
+    )..layout(maxWidth: labelPolicy.maxWidth);
+    if (_labelPainterCache.length >= _labelPainterCacheLimit) {
+      _labelPainterCache.remove(_labelPainterCache.keys.first);
+    }
+    _labelPainterCache[key] = painter;
+    return painter;
+  }
+
+  int _cacheMetric(double value) {
+    return (value * 4).round();
   }
 
   void _drawOuterRing(
@@ -822,4 +975,185 @@ class _LabelPolicy {
   final double fontSize;
   final int maxLines;
   final bool showEllipsis;
+}
+
+class _SliceColorCacheKey {
+  const _SliceColorCacheKey({
+    required this.wheelId,
+    required this.palette,
+    required this.isDark,
+    required this.itemCount,
+    required this.itemColorSignature,
+  });
+
+  final int wheelId;
+  final String palette;
+  final bool isDark;
+  final int itemCount;
+  final int itemColorSignature;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _SliceColorCacheKey &&
+        other.wheelId == wheelId &&
+        other.palette == palette &&
+        other.isDark == isDark &&
+        other.itemCount == itemCount &&
+        other.itemColorSignature == itemColorSignature;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(wheelId, palette, isDark, itemCount, itemColorSignature);
+  }
+}
+
+class _SlicePictureCacheKey {
+  const _SlicePictureCacheKey({
+    required this.wheelId,
+    required this.palette,
+    required this.isDark,
+    required this.winnerItemId,
+    required this.itemCount,
+    required this.itemVisualSignature,
+    required this.wheelRadiusMetric,
+    required this.labelFontSizeMetric,
+    required this.labelRadiusMetric,
+    required this.labelMaxWidthMetric,
+    required this.labelMaxChars,
+    required this.labelMaxLines,
+    required this.labelSingleCharOnly,
+    required this.labelShowEllipsis,
+    required this.materialSheenXMetric,
+    required this.materialSheenYMetric,
+    required this.materialDepthXMetric,
+    required this.materialDepthYMetric,
+    required this.materialSheenIntensityMetric,
+    required this.materialDepthIntensityMetric,
+  });
+
+  final int wheelId;
+  final String palette;
+  final bool isDark;
+  final int winnerItemId;
+  final int itemCount;
+  final int itemVisualSignature;
+  final int wheelRadiusMetric;
+  final int labelFontSizeMetric;
+  final int labelRadiusMetric;
+  final int labelMaxWidthMetric;
+  final int labelMaxChars;
+  final int labelMaxLines;
+  final bool labelSingleCharOnly;
+  final bool labelShowEllipsis;
+  final int materialSheenXMetric;
+  final int materialSheenYMetric;
+  final int materialDepthXMetric;
+  final int materialDepthYMetric;
+  final int materialSheenIntensityMetric;
+  final int materialDepthIntensityMetric;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _SlicePictureCacheKey &&
+        other.wheelId == wheelId &&
+        other.palette == palette &&
+        other.isDark == isDark &&
+        other.winnerItemId == winnerItemId &&
+        other.itemCount == itemCount &&
+        other.itemVisualSignature == itemVisualSignature &&
+        other.wheelRadiusMetric == wheelRadiusMetric &&
+        other.labelFontSizeMetric == labelFontSizeMetric &&
+        other.labelRadiusMetric == labelRadiusMetric &&
+        other.labelMaxWidthMetric == labelMaxWidthMetric &&
+        other.labelMaxChars == labelMaxChars &&
+        other.labelMaxLines == labelMaxLines &&
+        other.labelSingleCharOnly == labelSingleCharOnly &&
+        other.labelShowEllipsis == labelShowEllipsis &&
+        other.materialSheenXMetric == materialSheenXMetric &&
+        other.materialSheenYMetric == materialSheenYMetric &&
+        other.materialDepthXMetric == materialDepthXMetric &&
+        other.materialDepthYMetric == materialDepthYMetric &&
+        other.materialSheenIntensityMetric == materialSheenIntensityMetric &&
+        other.materialDepthIntensityMetric == materialDepthIntensityMetric;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      wheelId,
+      palette,
+      isDark,
+      winnerItemId,
+      itemCount,
+      itemVisualSignature,
+      wheelRadiusMetric,
+      labelFontSizeMetric,
+      labelRadiusMetric,
+      labelMaxWidthMetric,
+      labelMaxChars,
+      labelMaxLines,
+      labelSingleCharOnly,
+      labelShowEllipsis,
+      materialSheenXMetric,
+      materialSheenYMetric,
+      materialDepthXMetric,
+      materialDepthYMetric,
+      materialSheenIntensityMetric,
+      materialDepthIntensityMetric,
+    );
+  }
+}
+
+class _LabelPainterCacheKey {
+  const _LabelPainterCacheKey({
+    required this.itemId,
+    required this.title,
+    required this.maxChars,
+    required this.singleCharOnly,
+    required this.fontSizeMetric,
+    required this.maxWidthMetric,
+    required this.maxLines,
+    required this.showEllipsis,
+    required this.isDark,
+  });
+
+  final int itemId;
+  final String title;
+  final int maxChars;
+  final bool singleCharOnly;
+  final int fontSizeMetric;
+  final int maxWidthMetric;
+  final int maxLines;
+  final bool showEllipsis;
+  final bool isDark;
+
+  @override
+  bool operator ==(Object other) {
+    return other is _LabelPainterCacheKey &&
+        other.itemId == itemId &&
+        other.title == title &&
+        other.maxChars == maxChars &&
+        other.singleCharOnly == singleCharOnly &&
+        other.fontSizeMetric == fontSizeMetric &&
+        other.maxWidthMetric == maxWidthMetric &&
+        other.maxLines == maxLines &&
+        other.showEllipsis == showEllipsis &&
+        other.isDark == isDark;
+  }
+
+  @override
+  int get hashCode {
+    return Object.hash(
+      itemId,
+      title,
+      maxChars,
+      singleCharOnly,
+      fontSizeMetric,
+      maxWidthMetric,
+      maxLines,
+      showEllipsis,
+      isDark,
+    );
+  }
 }

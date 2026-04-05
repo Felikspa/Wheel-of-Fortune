@@ -10,6 +10,7 @@ class WheelUiTuning {
   static const double wheelBoundaryMarginFactor = 1.4;
   static const double wheelMaxScale = 3.2;
   static const double panEnableScaleThreshold = 1.01;
+  static const double detailScaleRepaintStep = 0.02;
   static const double spinControlsTopGap = 22;
   static const double spinCompleteMinTurns = 2;
 
@@ -71,11 +72,10 @@ class WheelUiTuning {
   static const int preTrimExtraChars = 8;
 
   // Edge gesture + unified spin physics
-  static const double edgeTouchInnerRadiusFactor = 0.72;
-  static const double edgeTouchOuterRadiusFactor = 0.99;
-  static const double edgeTouchHorizontalDominance = 1.22;
-  static const double flickTangentialVelocityThreshold = 560;
-  static const double flickTangentialDominance = 1.18;
+  static const double edgeTouchInnerRadiusFactor = 0.2;
+  static const double edgeTouchOuterRadiusFactor = 1.04;
+  static const double edgeTouchSideBandMinXFactor = 0.2;
+  static const double flickTangentialVelocityThreshold = 240;
   static const double freeSpinAngularVelocityClamp = 18.0;
   static const double freeSpinAngularVelocityMin = 3.6;
   static const double freeSpinBaseFriction = 4.0;

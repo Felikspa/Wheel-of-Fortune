@@ -119,8 +119,15 @@ class _DiceModePageState extends State<DiceModePage>
                   child: DropdownButtonFormField<int>(
                     key: ValueKey<String>('dice-sides-$sides'),
                     initialValue: sides,
+                    isExpanded: true,
+                    menuMaxHeight: 320,
                     decoration: InputDecoration(
                       labelText: l10n.diceSides,
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       border: const OutlineInputBorder(),
                     ),
                     items: [
@@ -165,12 +172,20 @@ class _DiceModePageState extends State<DiceModePage>
                         final items = <DropdownMenuItem<int?>>[
                           DropdownMenuItem<int?>(
                             value: null,
-                            child: Text(l10n.notSelected),
+                            child: Text(
+                              l10n.notSelected,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           if (isMissing)
                             DropdownMenuItem<int?>(
                               value: selectedItemId,
-                              child: Text(l10n.diceMissingItem),
+                              child: Text(
+                                l10n.diceMissingItem,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           for (final item in wheel.items)
                             DropdownMenuItem<int?>(
@@ -202,9 +217,15 @@ class _DiceModePageState extends State<DiceModePage>
                                   'dice-face-$index-$selectedItemId',
                                 ),
                                 initialValue: selectedItemId,
+                                isExpanded: true,
+                                menuMaxHeight: 360,
                                 decoration: const InputDecoration(
                                   border: OutlineInputBorder(),
                                   isDense: true,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 10,
+                                  ),
                                 ),
                                 items: items,
                                 onChanged: controller.busy

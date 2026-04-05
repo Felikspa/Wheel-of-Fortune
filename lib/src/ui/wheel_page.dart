@@ -48,6 +48,8 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
   double _sliceSheenIntensity = 1.0;
   double _sliceDepthIntensity = 1.0;
   double _wheelDetailScale = 1.0;
+  double? _pendingWheelDetailScale;
+  bool _wheelDetailScaleUpdateScheduled = false;
   double? _lastLayoutWheelSize;
   Size _wheelViewportSize = Size.zero;
   double _wheelBaseSize = 0;
@@ -55,10 +57,8 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
   bool _viewportResetScheduled = false;
   int? _edgePointerId;
   bool _edgePointerOnRim = false;
-  Offset? _edgePrevLocal;
-  Offset? _edgeLastLocal;
-  Duration? _edgePrevTime;
-  Duration? _edgeLastTime;
+  Offset? _edgeDownLocal;
+  Duration? _edgeDownTime;
   Timer? _edgePressTimer;
   Timer? _brakeHapticTimer;
   bool _edgeBrakeActive = false;
@@ -109,11 +109,20 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
         }
         if (_lastSelectedWheelId != wheel?.id && !controller.spinning) {
           _lastSelectedWheelId = wheel?.id;
-          _rotation = 0;
-          _baseRotation = 0;
+          final restored = wheel == null
+              ? false
+              : _restoreWheelViewportIfAvailable(
+                  controller: controller,
+                  wheelId: wheel.id,
+                );
+          if (!restored) {
+            _rotation = 0;
+            _baseRotation = 0;
+            _wheelDetailScale = 1.0;
+            _scheduleWheelViewportReset();
+          }
           _refreshGlowJitter(wheelId: wheel?.id, palette: wheel?.palette);
           _refreshSliceLight(wheelId: wheel?.id, palette: wheel?.palette);
-          _scheduleWheelViewportReset();
           _refreshFunHint(localeCode: localeCode, wheelId: wheel?.id);
         }
         if (_lastBrightness != Theme.of(context).brightness) {
@@ -170,7 +179,12 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
               if (_lastLayoutWheelSize == null ||
                   (_lastLayoutWheelSize! - wheelSize).abs() > 0.5) {
                 _lastLayoutWheelSize = wheelSize;
-                _scheduleWheelViewportReset();
+                final hasCachedViewport = controller.wheelViewportStateForWheel(
+                  wheel.id,
+                );
+                if (hasCachedViewport == null) {
+                  _scheduleWheelViewportReset();
+                }
               }
               _wheelViewportSize = Size(
                 constraints.maxWidth,
@@ -220,53 +234,58 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
                             child: SizedBox(
                               width: wheelSize,
                               height: wheelSize,
-                              child: Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  Positioned.fill(
-                                    child: _buildGlowSource(
-                                      size: wheelSize,
-                                      alignment: Alignment(
-                                        _glowAlignmentA.x + _glowJitterA.dx,
-                                        _glowAlignmentA.y + _glowJitterA.dy,
+                              child: Opacity(
+                                opacity: 0,
+                                child: RepaintBoundary(
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      Positioned.fill(
+                                        child: _buildGlowSource(
+                                          size: wheelSize,
+                                          alignment: Alignment(
+                                            _glowAlignmentA.x + _glowJitterA.dx,
+                                            _glowAlignmentA.y + _glowJitterA.dy,
+                                          ),
+                                          color: glowColors[0],
+                                          radiusFactor: _glowScaleA,
+                                          isDark: isDark,
+                                          tilt: -0.28,
+                                        ),
                                       ),
-                                      color: glowColors[0],
-                                      radiusFactor: _glowScaleA,
-                                      isDark: isDark,
-                                      tilt: -0.28,
-                                    ),
-                                  ),
-                                  Positioned.fill(
-                                    child: _buildGlowSource(
-                                      size: wheelSize,
-                                      alignment: Alignment(
-                                        _glowAlignmentB.x + _glowJitterB.dx,
-                                        _glowAlignmentB.y + _glowJitterB.dy,
+                                      Positioned.fill(
+                                        child: _buildGlowSource(
+                                          size: wheelSize,
+                                          alignment: Alignment(
+                                            _glowAlignmentB.x + _glowJitterB.dx,
+                                            _glowAlignmentB.y + _glowJitterB.dy,
+                                          ),
+                                          color: glowColors[1],
+                                          radiusFactor: _glowScaleB,
+                                          isDark: isDark,
+                                          tilt: 0.42,
+                                        ),
                                       ),
-                                      color: glowColors[1],
-                                      radiusFactor: _glowScaleB,
-                                      isDark: isDark,
-                                      tilt: 0.42,
-                                    ),
+                                      WheelCanvas(
+                                        wheel: wheel,
+                                        rotation: _rotation,
+                                        winnerItemId: controller.winnerItemId,
+                                        enabled: !controller.spinning,
+                                        detailScale: _wheelDetailScale,
+                                        materialSheenCenter: _sliceSheenCenter,
+                                        materialDepthCenter: _sliceDepthCenter,
+                                        materialSheenIntensity:
+                                            _sliceSheenIntensity,
+                                        materialDepthIntensity:
+                                            _sliceDepthIntensity,
+                                        onTapSlice: (index) => _showItemDetails(
+                                          context,
+                                          wheel.items[index],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  WheelCanvas(
-                                    wheel: wheel,
-                                    rotation: _rotation,
-                                    winnerItemId: controller.winnerItemId,
-                                    enabled: !controller.spinning,
-                                    detailScale: _wheelDetailScale,
-                                    materialSheenCenter: _sliceSheenCenter,
-                                    materialDepthCenter: _sliceDepthCenter,
-                                    materialSheenIntensity:
-                                        _sliceSheenIntensity,
-                                    materialDepthIntensity:
-                                        _sliceDepthIntensity,
-                                    onTapSlice: (index) => _showItemDetails(
-                                      context,
-                                      wheel.items[index],
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
                             ),
                           ),
@@ -325,14 +344,14 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
                             : Icons.play_arrow_rounded,
                         label: controller.spinning ? l10n.spinning : l10n.spin,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       if (wheel.items.length < 2)
                         Text(
                           l10n.atLeastTwoItems,
                           textAlign: TextAlign.center,
                           style: Theme.of(context).textTheme.bodySmall,
                         ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 4),
                       LiquidGlassChrome(
                         borderRadius: 22,
                         accentColor: accentColor,
@@ -349,13 +368,13 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
                             thickness: isDark ? 22 : 25,
                             blur: 0,
                             glassColor: accentColor.withValues(
-                              alpha: isDark ? 0.07 : 0.08,
+                              alpha: isDark ? 0.04 : 0.045,
                             ),
                             lightAngle: isDark ? pi * 0.76 : pi * 0.72,
-                            lightIntensity: isDark ? 0.5 : 1.0,
-                            ambientStrength: isDark ? 0.01 : 0.03,
+                            lightIntensity: isDark ? 0.0 : 1.0,
+                            ambientStrength: isDark ? 0.0 : 0.03,
                             refractiveIndex: 1.5,
-                            saturation: 1.3,
+                            saturation: 0.92,
                             chromaticAberration: 0,
                           ),
                           child: AnimatedContainer(
@@ -607,10 +626,8 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     }
     _edgePointerId = event.pointer;
     _edgePointerOnRim = _isEdgeTouch(local: event.localPosition, size: size);
-    _edgePrevLocal = event.localPosition;
-    _edgeLastLocal = event.localPosition;
-    _edgePrevTime = event.timeStamp;
-    _edgeLastTime = event.timeStamp;
+    _edgeDownLocal = event.localPosition;
+    _edgeDownTime = event.timeStamp;
 
     if (_spinRunning && _edgePointerOnRim) {
       _edgePressTimer?.cancel();
@@ -633,10 +650,10 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     if (event.pointer != _edgePointerId) {
       return;
     }
-    _edgePrevLocal = _edgeLastLocal;
-    _edgePrevTime = _edgeLastTime;
-    _edgeLastLocal = event.localPosition;
-    _edgeLastTime = event.timeStamp;
+    if (!_edgePointerOnRim &&
+        _isEdgeTouch(local: event.localPosition, size: size)) {
+      _edgePointerOnRim = true;
+    }
 
     if (_spinRunning) {
       final stillOnRim = _isEdgeTouch(local: event.localPosition, size: size);
@@ -659,42 +676,36 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _setEdgeBrakeActive(false);
 
     final wasOnRim = _edgePointerOnRim;
-    final prevLocal = _edgePrevLocal;
-    final lastLocal = _edgeLastLocal;
-    final prevTime = _edgePrevTime;
-    final lastTime = _edgeLastTime;
+    final downLocal = _edgeDownLocal;
+    final downTime = _edgeDownTime;
+    final upLocal = event.localPosition;
+    final upTime = event.timeStamp;
+    final endedOnRim = _isEdgeTouch(local: upLocal, size: size);
     _resetEdgePointerTracking();
 
-    if (!wasOnRim ||
+    if ((!wasOnRim && !endedOnRim) ||
         controller.spinning ||
         _wheelDetailScale > WheelUiTuning.panEnableScaleThreshold) {
       return;
     }
-    if (prevLocal == null ||
-        lastLocal == null ||
-        prevTime == null ||
-        lastTime == null) {
+    if (downLocal == null || downTime == null) {
       return;
     }
-    final dtMicros = (lastTime - prevTime).inMicroseconds;
+    final dtMicros = (upTime - downTime).inMicroseconds;
     if (dtMicros <= 0) {
       return;
     }
-    final velocity = (lastLocal - prevLocal) / (dtMicros / 1e6);
-    final spinVelocity = _projectTangentialVelocity(
+    final velocity = (upLocal - downLocal) / (dtMicros / 1e6);
+    final sideSwipeVelocity = _projectSideSwipeVelocity(
       velocity: velocity,
-      local: lastLocal,
+      local: upLocal,
       size: size,
     );
-    if (spinVelocity.tangential.abs() <
+    if (sideSwipeVelocity.abs() <
         WheelUiTuning.flickTangentialVelocityThreshold) {
       return;
     }
-    if (spinVelocity.tangential.abs() <
-        spinVelocity.radial.abs() * WheelUiTuning.flickTangentialDominance) {
-      return;
-    }
-    final angularVelocity = spinVelocity.tangential / (size / 2);
+    final angularVelocity = sideSwipeVelocity / (size / 2);
     _startFreeSpin(
       controller: controller,
       wheel: wheel,
@@ -721,26 +732,18 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
       return false;
     }
     return vector.dx.abs() >=
-        vector.dy.abs() * WheelUiTuning.edgeTouchHorizontalDominance;
+        radius * WheelUiTuning.edgeTouchSideBandMinXFactor;
   }
 
-  _TangentialProjection _projectTangentialVelocity({
+  double _projectSideSwipeVelocity({
     required Offset velocity,
     required Offset local,
     required double size,
   }) {
     final center = Offset(size / 2, size / 2);
-    final radialVector = local - center;
-    final distance = max(radialVector.distance, 1.0);
-    final radialUnit = Offset(
-      radialVector.dx / distance,
-      radialVector.dy / distance,
-    );
-    final tangentClockwise = Offset(-radialUnit.dy, radialUnit.dx);
-    final tangential =
-        velocity.dx * tangentClockwise.dx + velocity.dy * tangentClockwise.dy;
-    final radial = velocity.dx * radialUnit.dx + velocity.dy * radialUnit.dy;
-    return _TangentialProjection(tangential: tangential, radial: radial);
+    final vector = local - center;
+    final sideSign = vector.dx >= 0 ? 1.0 : -1.0;
+    return velocity.dy * sideSign;
   }
 
   void _startTargetedSpin({
@@ -967,10 +970,8 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
   void _resetEdgePointerTracking() {
     _edgePointerId = null;
     _edgePointerOnRim = false;
-    _edgePrevLocal = null;
-    _edgeLastLocal = null;
-    _edgePrevTime = null;
-    _edgeLastTime = null;
+    _edgeDownLocal = null;
+    _edgeDownTime = null;
   }
 
   void _handleWheelTransformChanged() {
@@ -994,21 +995,58 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     final nearlyDefault = nextScale <= WheelUiTuning.panEnableScaleThreshold;
     final translated = tx.abs() > 0.5 || ty.abs() > 0.5;
     if (nearlyDefault && (translated || (nextScale - 1.0).abs() > 0.001)) {
+      _pendingWheelDetailScale = null;
       _setWheelTransformIdentity();
       if (_wheelDetailScale != 1.0) {
         setState(() => _wheelDetailScale = 1.0);
+        _cacheCurrentWheelViewportIfPossible();
+      } else {
+        _cacheCurrentWheelViewportIfPossible();
       }
       return;
     }
     if (!mounted) {
       return;
     }
-    if ((nextScale - _wheelDetailScale).abs() < 0.015) {
+    final quantizedScale = _quantizeDetailScale(nextScale);
+    if ((quantizedScale - _wheelDetailScale).abs() <
+        WheelUiTuning.detailScaleRepaintStep * 0.5) {
+      _cacheCurrentWheelViewportIfPossible();
       return;
     }
-    setState(() {
-      _wheelDetailScale = nextScale;
+    _scheduleWheelDetailScaleUpdate(quantizedScale);
+  }
+
+  void _scheduleWheelDetailScaleUpdate(double nextScale) {
+    _pendingWheelDetailScale = nextScale;
+    if (_wheelDetailScaleUpdateScheduled) {
+      return;
+    }
+    _wheelDetailScaleUpdateScheduled = true;
+    SchedulerBinding.instance.scheduleFrameCallback((_) {
+      _wheelDetailScaleUpdateScheduled = false;
+      if (!mounted) {
+        return;
+      }
+      final pending = _pendingWheelDetailScale;
+      _pendingWheelDetailScale = null;
+      if (pending == null ||
+          (pending - _wheelDetailScale).abs() <
+              WheelUiTuning.detailScaleRepaintStep * 0.5) {
+        return;
+      }
+      setState(() {
+        _wheelDetailScale = pending;
+      });
+      _cacheCurrentWheelViewportIfPossible();
     });
+  }
+
+  double _quantizeDetailScale(double rawScale) {
+    final clamped = rawScale.clamp(1.0, WheelUiTuning.wheelMaxScale);
+    final step = WheelUiTuning.detailScaleRepaintStep;
+    final bucket = ((clamped - 1.0) / step).round();
+    return (1.0 + bucket * step).clamp(1.0, WheelUiTuning.wheelMaxScale);
   }
 
   void _scheduleWheelViewportReset() {
@@ -1074,8 +1112,78 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _syncingWheelTransform = false;
   }
 
+  bool _restoreWheelViewportIfAvailable({
+    required AppController controller,
+    required int wheelId,
+  }) {
+    final cached = controller.wheelViewportStateForWheel(wheelId);
+    if (cached == null) {
+      return false;
+    }
+    final cachedScale = cached.scale.clamp(1.0, WheelUiTuning.wheelMaxScale);
+    final restoredMatrix = Matrix4.identity()
+      ..setEntry(0, 0, cachedScale)
+      ..setEntry(1, 1, cachedScale)
+      ..setEntry(0, 3, cached.translateX)
+      ..setEntry(1, 3, cached.translateY);
+    _setWheelTransform(restoredMatrix);
+    _wheelDetailScale = _quantizeDetailScale(cachedScale);
+    _pendingWheelDetailScale = null;
+    _rotation = _normalizeRotation(cached.rotation);
+    _baseRotation = _rotation;
+    _glowAlignmentA = Alignment(cached.glowAx, cached.glowAy);
+    _glowJitterA = Offset.zero;
+    _glowAlignmentB = Alignment(cached.glowBx, cached.glowBy);
+    _glowJitterB = Offset.zero;
+    _glowScaleA = cached.glowScaleA;
+    _glowScaleB = cached.glowScaleB;
+    _sliceSheenCenter = Alignment(cached.sliceSheenX, cached.sliceSheenY);
+    _sliceDepthCenter = Alignment(cached.sliceDepthX, cached.sliceDepthY);
+    _sliceSheenIntensity = cached.sliceSheenIntensity;
+    _sliceDepthIntensity = cached.sliceDepthIntensity;
+    return true;
+  }
+
+  void _cacheWheelViewportState({
+    required AppController controller,
+    required int wheelId,
+  }) {
+    final matrix = _wheelTransformController.value;
+    controller.cacheWheelViewportState(
+      wheelId: wheelId,
+      rotation: _normalizeRotation(_rotation),
+      scale: _wheelDetailScale,
+      translateX: matrix.entry(0, 3),
+      translateY: matrix.entry(1, 3),
+      glowAx: _glowAlignmentA.x + _glowJitterA.dx,
+      glowAy: _glowAlignmentA.y + _glowJitterA.dy,
+      glowBx: _glowAlignmentB.x + _glowJitterB.dx,
+      glowBy: _glowAlignmentB.y + _glowJitterB.dy,
+      glowScaleA: _glowScaleA,
+      glowScaleB: _glowScaleB,
+      sliceSheenX: _sliceSheenCenter.x,
+      sliceSheenY: _sliceSheenCenter.y,
+      sliceDepthX: _sliceDepthCenter.x,
+      sliceDepthY: _sliceDepthCenter.y,
+      sliceSheenIntensity: _sliceSheenIntensity,
+      sliceDepthIntensity: _sliceDepthIntensity,
+    );
+  }
+
   void _setWheelTransformIdentity() {
     _setWheelTransform(Matrix4.identity());
+  }
+
+  void _cacheCurrentWheelViewportIfPossible() {
+    if (!mounted) {
+      return;
+    }
+    final controller = context.read<AppController>();
+    final wheelId = controller.selectedWheelId;
+    if (wheelId == null) {
+      return;
+    }
+    _cacheWheelViewportState(controller: controller, wheelId: wheelId);
   }
 
   void _refreshFunHint({required String localeCode, int? wheelId}) {
@@ -1301,18 +1409,20 @@ class _LiquidGlassSpinButton extends StatelessWidget {
               settings: LiquidGlassSettings(
                 thickness: isDark ? 22 : 25,
                 blur: 0,
-                glassColor: accentColor.withValues(alpha: isDark ? 0.07 : 0.08),
+                glassColor: accentColor.withValues(
+                  alpha: isDark ? 0.04 : 0.045,
+                ),
                 lightAngle: isDark ? pi * 0.76 : pi * 0.72,
-                lightIntensity: isDark ? 0.5 : 1.0,
-                ambientStrength: isDark ? 0.01 : 0.03,
+                lightIntensity: isDark ? 0.0 : 1.0,
+                ambientStrength: isDark ? 0.0 : 0.03,
                 refractiveIndex: 1.5,
-                saturation: isDark ? 1.3 : 1.3,
+                saturation: isDark ? 0.92 : 0.92,
                 chromaticAberration: 0,
               ),
               interactionScale: 1.0,
               stretch: 0,
               resistance: 0.12,
-              glowColor: accentColor.withValues(alpha: isDark ? 0.05 : 0.07),
+              glowColor: accentColor.withValues(alpha: isDark ? 0.0 : 0.035),
               glowRadius: isDark ? 1.1 : 1.16,
               style: GlassButtonStyle.filled,
               child: Row(
@@ -1336,11 +1446,4 @@ class _LiquidGlassSpinButton extends StatelessWidget {
       ),
     );
   }
-}
-
-class _TangentialProjection {
-  const _TangentialProjection({required this.tangential, required this.radial});
-
-  final double tangential;
-  final double radial;
 }
