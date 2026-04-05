@@ -81,6 +81,7 @@ class _HomeShellState extends State<HomeShell> {
           drawer: _WheelDrawer(
             wheels: controller.wheels,
             selectedWheelId: controller.selectedWheelId,
+            accentColor: _paletteDrawerAccentColor(palette, isDark),
             title: l10n.wheels,
             emptyLabel: l10n.noWheelsYet,
             onSelectWheel: (wheelId) {
@@ -204,12 +205,25 @@ class _HomeShellState extends State<HomeShell> {
             : [const Color(0x557A95FF), const Color(0x5558DCCF)],
     };
   }
+
+  Color _paletteDrawerAccentColor(String palette, bool isDark) {
+    return switch (palette) {
+      'random' => isDark ? const Color(0xFFBFA3FF) : const Color(0xFF7367F0),
+      'ocean' => isDark ? const Color(0xFF71C5FF) : const Color(0xFF2188F6),
+      'sunset' => isDark ? const Color(0xFFFFA36E) : const Color(0xFFEE6C2B),
+      'mint' => isDark ? const Color(0xFF7DE4CA) : const Color(0xFF16B38A),
+      'mono' => isDark ? const Color(0xFF9EA7B4) : const Color(0xFF6F7783),
+      'pink' => isDark ? const Color(0xFFFFA3C8) : const Color(0xFFFF8AB6),
+      _ => isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
+    };
+  }
 }
 
 class _WheelDrawer extends StatelessWidget {
   const _WheelDrawer({
     required this.wheels,
     required this.selectedWheelId,
+    required this.accentColor,
     required this.title,
     required this.emptyLabel,
     required this.onSelectWheel,
@@ -217,6 +231,7 @@ class _WheelDrawer extends StatelessWidget {
 
   final List<WheelModel> wheels;
   final int? selectedWheelId;
+  final Color accentColor;
   final String title;
   final String emptyLabel;
   final ValueChanged<int> onSelectWheel;
@@ -225,14 +240,7 @@ class _WheelDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
-    WheelModel? selectedWheel;
-    for (final wheel in wheels) {
-      if (wheel.id == selectedWheelId) {
-        selectedWheel = wheel;
-        break;
-      }
-    }
+    final primary = accentColor;
     final width = min(MediaQuery.of(context).size.width * 0.84, 330.0);
     return Drawer(
       width: width,
@@ -254,18 +262,32 @@ class _WheelDrawer extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: isDark
                         ? [
-                            const Color(0xFF1A1E29).withValues(alpha: 0.78),
-                            const Color(0xFF101520).withValues(alpha: 0.76),
+                            Color.lerp(
+                              primary,
+                              const Color(0xFF111621),
+                              0.86,
+                            )!.withValues(alpha: 0.8),
+                            Color.lerp(
+                              primary,
+                              const Color(0xFF0B1018),
+                              0.92,
+                            )!.withValues(alpha: 0.78),
                           ]
                         : [
-                            Colors.white.withValues(alpha: 0.8),
-                            const Color(0xFFF5F8FF).withValues(alpha: 0.72),
+                            Color.lerp(
+                              primary,
+                              Colors.white,
+                              0.92,
+                            )!.withValues(alpha: 0.82),
+                            Color.lerp(
+                              primary,
+                              const Color(0xFFF5F8FF),
+                              0.9,
+                            )!.withValues(alpha: 0.74),
                           ],
                   ),
                   border: Border.all(
-                    color: isDark
-                        ? Colors.white.withValues(alpha: 0.14)
-                        : Colors.white.withValues(alpha: 0.62),
+                    color: primary.withValues(alpha: isDark ? 0.3 : 0.2),
                   ),
                   borderRadius: BorderRadius.circular(30),
                   boxShadow: [
@@ -278,149 +300,96 @@ class _WheelDrawer extends StatelessWidget {
                     ),
                   ],
                 ),
-                child: Stack(
+                child: Column(
                   children: [
-                    Positioned(
-                      top: -44,
-                      right: -28,
-                      child: _DrawerOrb(
-                        size: 148,
-                        color: primary.withValues(alpha: isDark ? 0.2 : 0.16),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: -36,
-                      left: -22,
-                      child: _DrawerOrb(
-                        size: 118,
-                        color: primary.withValues(alpha: isDark ? 0.16 : 0.12),
-                      ),
-                    ),
-                    Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 12, 14),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 34,
-                                height: 34,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: primary.withValues(
-                                    alpha: isDark ? 0.26 : 0.18,
-                                  ),
-                                  border: Border.all(
-                                    color: primary.withValues(
-                                      alpha: isDark ? 0.4 : 0.34,
-                                    ),
-                                  ),
-                                ),
-                                child: Icon(
-                                  Icons.cached_rounded,
-                                  size: 18,
-                                  color: primary,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      title,
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${wheels.length}',
-                                      style: theme.textTheme.bodySmall,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () => Navigator.of(context).pop(),
-                                icon: const Icon(Icons.close_rounded, size: 19),
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 12, 14),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 34,
+                            height: 34,
                             decoration: BoxDecoration(
-                              color: theme.colorScheme.surface.withValues(
-                                alpha: isDark ? 0.28 : 0.56,
+                              shape: BoxShape.circle,
+                              color: primary.withValues(
+                                alpha: isDark ? 0.26 : 0.18,
                               ),
-                              borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: primary.withValues(
-                                  alpha: isDark ? 0.24 : 0.2,
+                                  alpha: isDark ? 0.4 : 0.34,
                                 ),
                               ),
                             ),
-                            child: Text(
-                              selectedWheel?.name ?? emptyLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
+                            child: Icon(
+                              Icons.cached_rounded,
+                              size: 18,
+                              color: primary,
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        Divider(
-                          height: 1,
-                          color: theme.dividerTheme.color?.withValues(
-                            alpha: isDark ? 0.9 : 0.95,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${wheels.length}',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                        Expanded(
-                          child: wheels.isEmpty
-                              ? Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(20),
-                                    child: Text(
-                                      emptyLabel,
-                                      textAlign: TextAlign.center,
-                                      style: theme.textTheme.bodyMedium,
-                                    ),
-                                  ),
-                                )
-                              : ListView.separated(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    12,
-                                    12,
-                                    12,
-                                    14,
-                                  ),
-                                  itemCount: wheels.length,
-                                  separatorBuilder: (_, _) =>
-                                      const SizedBox(height: 8),
-                                  itemBuilder: (context, index) {
-                                    final wheel = wheels[index];
-                                    final selected =
-                                        wheel.id == selectedWheelId;
-                                    return _WheelDrawerTile(
-                                      wheel: wheel,
-                                      selected: selected,
-                                      onTap: () {
-                                        onSelectWheel(wheel.id);
-                                        Navigator.of(context).pop();
-                                      },
-                                    );
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close_rounded, size: 19),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: wheels.isEmpty
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(20),
+                                child: Text(
+                                  emptyLabel,
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(
+                                12,
+                                12,
+                                12,
+                                14,
+                              ),
+                              itemCount: wheels.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: 8),
+                              itemBuilder: (context, index) {
+                                final wheel = wheels[index];
+                                final selected = wheel.id == selectedWheelId;
+                                return _WheelDrawerTile(
+                                  wheel: wheel,
+                                  selected: selected,
+                                  accentColor: primary,
+                                  onTap: () {
+                                    onSelectWheel(wheel.id);
+                                    Navigator.of(context).pop();
                                   },
-                                ),
-                        ),
-                      ],
+                                );
+                              },
+                            ),
                     ),
                   ],
                 ),
@@ -437,18 +406,20 @@ class _WheelDrawerTile extends StatelessWidget {
   const _WheelDrawerTile({
     required this.wheel,
     required this.selected,
+    required this.accentColor,
     required this.onTap,
   });
 
   final WheelModel wheel;
   final bool selected;
+  final Color accentColor;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final primary = theme.colorScheme.primary;
+    final primary = accentColor;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -525,27 +496,6 @@ class _WheelDrawerTile extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DrawerOrb extends StatelessWidget {
-  const _DrawerOrb({required this.size, required this.color});
-
-  final double size;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
         ),
       ),
     );

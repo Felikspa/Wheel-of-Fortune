@@ -331,6 +331,14 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
               'wheel-mode-${widget.wheel.id}-${widget.wheel.probabilityMode.name}',
             ),
             initialValue: widget.wheel.probabilityMode,
+            isExpanded: true,
+            menuMaxHeight: 320,
+            borderRadius: _dropdownPopupRadius,
+            dropdownColor: _dropdownPopupColor(context),
+            iconEnabledColor: Theme.of(context).colorScheme.primary,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             decoration: InputDecoration(labelText: l10n.probabilityMode),
             items: [
               DropdownMenuItem(
@@ -384,6 +392,14 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
               'wheel-palette-${widget.wheel.id}-${widget.wheel.palette}',
             ),
             initialValue: widget.wheel.palette,
+            isExpanded: true,
+            menuMaxHeight: 320,
+            borderRadius: _dropdownPopupRadius,
+            dropdownColor: _dropdownPopupColor(context),
+            iconEnabledColor: Theme.of(context).colorScheme.primary,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             decoration: InputDecoration(labelText: l10n.palette),
             items: paletteOptions.entries
                 .map(
@@ -733,6 +749,14 @@ class _AppSettingsCard extends StatelessWidget {
               DropdownButtonFormField<String?>(
                 key: ValueKey('locale-${settings.localeOverride ?? 'system'}'),
                 initialValue: settings.localeOverride,
+                isExpanded: true,
+                menuMaxHeight: 320,
+                borderRadius: _dropdownPopupRadius,
+                dropdownColor: _dropdownPopupColor(context),
+                iconEnabledColor: Theme.of(context).colorScheme.primary,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 decoration: InputDecoration(labelText: l10n.language),
                 items: [
                   DropdownMenuItem<String?>(
@@ -754,6 +778,14 @@ class _AppSettingsCard extends StatelessWidget {
               DropdownButtonFormField<AppThemeMode>(
                 key: ValueKey('theme-mode-${settings.themeMode.name}'),
                 initialValue: settings.themeMode,
+                isExpanded: true,
+                menuMaxHeight: 320,
+                borderRadius: _dropdownPopupRadius,
+                dropdownColor: _dropdownPopupColor(context),
+                iconEnabledColor: Theme.of(context).colorScheme.primary,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
                 decoration: InputDecoration(labelText: l10n.theme),
                 items: [
                   DropdownMenuItem(
@@ -898,6 +930,15 @@ class _FrostedPanel extends StatelessWidget {
       ),
     );
   }
+}
+
+final BorderRadius _dropdownPopupRadius = BorderRadius.circular(18);
+
+Color _dropdownPopupColor(BuildContext context) {
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return isDark
+      ? const Color(0xFF171D29).withValues(alpha: 0.96)
+      : const Color(0xFFF7FAFF).withValues(alpha: 0.97);
 }
 
 Future<String?> _showTextInputDialog(

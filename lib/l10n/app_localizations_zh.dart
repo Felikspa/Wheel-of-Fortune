@@ -179,7 +179,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get quickImportExampleLabel => '输入示例';
 
   @override
-  String get quickImportExampleText => 'apple;banana;grape;\n\n苹果，site:楼下，color:blue；香蕉，超市，red；梨，淘宝，orange；';
+  String get quickImportExampleText =>
+      'apple;banana;grape;\n\n苹果，site:楼下，color:blue；香蕉，超市，red；梨，淘宝，orange；';
 
   @override
   String get syntaxGuideEntry => '语法说明';
@@ -197,7 +198,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syntaxGuideRule2 => '2. 每条项目的第一个字段固定是标题。';
 
   @override
-  String get syntaxGuideRule3 => '3. 第一条可用 key:value 定义额外字段，如 site:楼下,color:blue。';
+  String get syntaxGuideRule3 =>
+      '3. 第一条可用 key:value 定义额外字段，如 site:楼下,color:blue。';
 
   @override
   String get syntaxGuideRule4 => '4. 后续项目可省略 key，按第一条字段顺序自动匹配。';
@@ -212,7 +214,8 @@ class AppLocalizationsZh extends AppLocalizations {
   String get syntaxGuideExample2Title => '示例2（site + color）';
 
   @override
-  String get syntaxGuideExample2Value => '苹果，site:楼下，color:blue；香蕉，超市，red；梨，淘宝，orange；';
+  String get syntaxGuideExample2Value =>
+      '苹果，site:楼下，color:blue；香蕉，超市，red；梨，淘宝，orange；';
 
   @override
   String quickImportAdded(int count) {

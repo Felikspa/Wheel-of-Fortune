@@ -21,7 +21,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noWheelsYet => 'No wheels yet';
 
   @override
-  String get createFirstWheelHint => 'Create your first wheel from the manage page.';
+  String get createFirstWheelHint =>
+      'Create your first wheel from the manage page.';
 
   @override
   String get goToManage => 'Go to Manage';
@@ -179,7 +180,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get quickImportExampleLabel => 'Example Input';
 
   @override
-  String get quickImportExampleText => 'apple;banana;grape;\n\n苹果,site:楼下,color:blue;香蕉,超市,red;梨,淘宝,orange;';
+  String get quickImportExampleText =>
+      'apple;banana;grape;\n\n苹果,site:楼下,color:blue;香蕉,超市,red;梨,淘宝,orange;';
 
   @override
   String get syntaxGuideEntry => 'Syntax Guide';
@@ -188,19 +190,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syntaxGuideTitle => 'Quick Import Syntax';
 
   @override
-  String get syntaxGuideOverview => 'Use this to append items to the current wheel only.';
+  String get syntaxGuideOverview =>
+      'Use this to append items to the current wheel only.';
 
   @override
-  String get syntaxGuideRule1 => '1. Use semicolon or newline to separate items. Chinese/English and full/half punctuation are all supported.';
+  String get syntaxGuideRule1 =>
+      '1. Use semicolon or newline to separate items. Chinese/English and full/half punctuation are all supported.';
 
   @override
-  String get syntaxGuideRule2 => '2. The first segment of each item is always the title.';
+  String get syntaxGuideRule2 =>
+      '2. The first segment of each item is always the title.';
 
   @override
-  String get syntaxGuideRule3 => '3. In the first item, you can define extra fields with key:value, such as site:xxx,color:xxx.';
+  String get syntaxGuideRule3 =>
+      '3. In the first item, you can define extra fields with key:value, such as site:xxx,color:xxx.';
 
   @override
-  String get syntaxGuideRule4 => '4. Later items can omit keys and follow the same order from the first item.';
+  String get syntaxGuideRule4 =>
+      '4. Later items can omit keys and follow the same order from the first item.';
 
   @override
   String get syntaxGuideExample1Title => 'Example 1 (title only)';
@@ -212,7 +219,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syntaxGuideExample2Title => 'Example 2 (site + color)';
 
   @override
-  String get syntaxGuideExample2Value => '苹果,site:楼下,color:blue;香蕉,超市,red;梨,淘宝,orange;';
+  String get syntaxGuideExample2Value =>
+      '苹果,site:楼下,color:blue;香蕉,超市,red;梨,淘宝,orange;';
 
   @override
   String quickImportAdded(int count) {

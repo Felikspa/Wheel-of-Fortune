@@ -32,10 +32,17 @@ class _WheelPageState extends State<WheelPage>
   String? _funHint;
   int _hintSeed = DateTime.now().microsecondsSinceEpoch;
   int _glowJitterSeed = DateTime.now().microsecondsSinceEpoch;
+  int _sliceLightSeed = DateTime.now().microsecondsSinceEpoch ^ 0x2E1B4C3A;
+  Alignment _glowAlignmentA = const Alignment(-0.58, -0.56);
+  Alignment _glowAlignmentB = const Alignment(0.48, 0.54);
   Offset _glowJitterA = Offset.zero;
   Offset _glowJitterB = Offset.zero;
   double _glowScaleA = 0.86;
   double _glowScaleB = 0.94;
+  Alignment _sliceSheenCenter = const Alignment(-0.16, -0.12);
+  Alignment _sliceDepthCenter = const Alignment(0.2, 0.16);
+  double _sliceSheenIntensity = 1.0;
+  double _sliceDepthIntensity = 1.0;
 
   @override
   void initState() {
@@ -48,6 +55,7 @@ class _WheelPageState extends State<WheelPage>
         }
       });
     _refreshGlowJitter();
+    _refreshSliceLight();
   }
 
   @override
@@ -73,15 +81,14 @@ class _WheelPageState extends State<WheelPage>
           _rotation = 0;
           _baseRotation = 0;
           _refreshGlowJitter(wheelId: wheel?.id, palette: wheel?.palette);
+          _refreshSliceLight(wheelId: wheel?.id, palette: wheel?.palette);
           _refreshFunHint(localeCode: localeCode, wheelId: wheel?.id);
         }
         if (_lastBrightness != Theme.of(context).brightness) {
           _lastBrightness = Theme.of(context).brightness;
-          _refreshGlowJitter(wheelId: wheel?.id, palette: wheel?.palette);
         }
         if (_lastPalette != wheel?.palette) {
           _lastPalette = wheel?.palette;
-          _refreshGlowJitter(wheelId: wheel?.id, palette: wheel?.palette);
         }
         if (wheel == null) {
           return Center(
@@ -174,8 +181,8 @@ class _WheelPageState extends State<WheelPage>
                               child: _buildGlowSource(
                                 size: size,
                                 alignment: Alignment(
-                                  -0.58 + _glowJitterA.dx,
-                                  -0.56 + _glowJitterA.dy,
+                                  _glowAlignmentA.x + _glowJitterA.dx,
+                                  _glowAlignmentA.y + _glowJitterA.dy,
                                 ),
                                 color: glowColors[0],
                                 radiusFactor: _glowScaleA,
@@ -187,8 +194,8 @@ class _WheelPageState extends State<WheelPage>
                               child: _buildGlowSource(
                                 size: size,
                                 alignment: Alignment(
-                                  0.48 + _glowJitterB.dx,
-                                  0.54 + _glowJitterB.dy,
+                                  _glowAlignmentB.x + _glowJitterB.dx,
+                                  _glowAlignmentB.y + _glowJitterB.dy,
                                 ),
                                 color: glowColors[1],
                                 radiusFactor: _glowScaleB,
@@ -201,6 +208,10 @@ class _WheelPageState extends State<WheelPage>
                               rotation: _rotation,
                               winnerItemId: controller.winnerItemId,
                               enabled: !controller.spinning,
+                              materialSheenCenter: _sliceSheenCenter,
+                              materialDepthCenter: _sliceDepthCenter,
+                              materialSheenIntensity: _sliceSheenIntensity,
+                              materialDepthIntensity: _sliceDepthIntensity,
                               onTapSlice: (index) =>
                                   _showItemDetails(context, wheel.items[index]),
                             ),
@@ -454,17 +465,59 @@ class _WheelPageState extends State<WheelPage>
         (palette?.hashCode ?? 0) ^
         DateTime.now().millisecondsSinceEpoch;
     final rng = Random(seedBase);
+    final angleA = rng.nextDouble() * 2 * pi;
+    final distA = 0.46 + rng.nextDouble() * 0.34;
+    _glowAlignmentA = Alignment(cos(angleA) * distA, sin(angleA) * distA);
+    final angleB = angleA + pi + (rng.nextDouble() - 0.5) * 0.76;
+    final distB = 0.44 + rng.nextDouble() * 0.34;
+    _glowAlignmentB = Alignment(cos(angleB) * distB, sin(angleB) * distB);
     _glowJitterA = Offset(
-      (rng.nextDouble() - 0.5) * 0.18,
-      (rng.nextDouble() - 0.5) * 0.18,
+      (rng.nextDouble() - 0.5) * 0.1,
+      (rng.nextDouble() - 0.5) * 0.1,
     );
     _glowJitterB = Offset(
-      (rng.nextDouble() - 0.5) * 0.18,
-      (rng.nextDouble() - 0.5) * 0.18,
+      (rng.nextDouble() - 0.5) * 0.1,
+      (rng.nextDouble() - 0.5) * 0.1,
     );
     _glowScaleA = 0.78 + rng.nextDouble() * 0.2;
     _glowScaleB = 0.86 + rng.nextDouble() * 0.22;
     _glowJitterSeed = seedBase ^ 0x5F3759DF;
+  }
+
+  void _refreshSliceLight({int? wheelId, String? palette}) {
+    final seedBase =
+        _sliceLightSeed ^
+        (wheelId ?? 0) ^
+        (palette?.hashCode ?? 0) ^
+        DateTime.now().millisecondsSinceEpoch;
+    final rng = Random(seedBase);
+    const anchors = <Alignment>[
+      Alignment(-0.72, -0.68),
+      Alignment(-0.08, -0.84),
+      Alignment(0.64, -0.62),
+      Alignment(0.82, -0.06),
+      Alignment(0.7, 0.64),
+      Alignment(0.04, 0.84),
+      Alignment(-0.68, 0.7),
+      Alignment(-0.84, 0.02),
+    ];
+    final anchor = anchors[rng.nextInt(anchors.length)];
+    final jitterX = (rng.nextDouble() - 0.5) * 0.22;
+    final jitterY = (rng.nextDouble() - 0.5) * 0.22;
+    _sliceSheenCenter = Alignment(
+      (anchor.x + jitterX).clamp(-0.9, 0.9).toDouble(),
+      (anchor.y + jitterY).clamp(-0.9, 0.9).toDouble(),
+    );
+    final depthBase = Alignment(-anchor.x, -anchor.y);
+    final depthJitterX = (rng.nextDouble() - 0.5) * 0.18;
+    final depthJitterY = (rng.nextDouble() - 0.5) * 0.18;
+    _sliceDepthCenter = Alignment(
+      (depthBase.x + depthJitterX).clamp(-0.92, 0.92).toDouble(),
+      (depthBase.y + depthJitterY).clamp(-0.92, 0.92).toDouble(),
+    );
+    _sliceSheenIntensity = 0.92 + rng.nextDouble() * 0.3;
+    _sliceDepthIntensity = 0.76 + rng.nextDouble() * 0.24;
+    _sliceLightSeed = seedBase ^ 0x6A09E667;
   }
 
   void _refreshFunHint({required String localeCode, int? wheelId}) {

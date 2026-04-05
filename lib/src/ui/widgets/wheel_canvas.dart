@@ -16,6 +16,10 @@ class WheelCanvas extends StatelessWidget {
     required this.winnerItemId,
     required this.onTapSlice,
     required this.enabled,
+    required this.materialSheenCenter,
+    required this.materialDepthCenter,
+    required this.materialSheenIntensity,
+    required this.materialDepthIntensity,
   });
 
   final WheelModel wheel;
@@ -23,6 +27,10 @@ class WheelCanvas extends StatelessWidget {
   final int? winnerItemId;
   final ValueChanged<int> onTapSlice;
   final bool enabled;
+  final Alignment materialSheenCenter;
+  final Alignment materialDepthCenter;
+  final double materialSheenIntensity;
+  final double materialDepthIntensity;
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +61,10 @@ class WheelCanvas extends StatelessWidget {
                   rotation: rotation,
                   winnerItemId: winnerItemId,
                   brightness: Theme.of(context).brightness,
+                  materialSheenCenter: materialSheenCenter,
+                  materialDepthCenter: materialDepthCenter,
+                  materialSheenIntensity: materialSheenIntensity,
+                  materialDepthIntensity: materialDepthIntensity,
                 ),
               ),
             ),
@@ -96,12 +108,20 @@ class _WheelPainter extends CustomPainter {
     required this.rotation,
     required this.winnerItemId,
     required this.brightness,
+    required this.materialSheenCenter,
+    required this.materialDepthCenter,
+    required this.materialSheenIntensity,
+    required this.materialDepthIntensity,
   });
 
   final WheelModel wheel;
   final double rotation;
   final int? winnerItemId;
   final Brightness brightness;
+  final Alignment materialSheenCenter;
+  final Alignment materialDepthCenter;
+  final double materialSheenIntensity;
+  final double materialDepthIntensity;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -131,26 +151,56 @@ class _WheelPainter extends CustomPainter {
 
     final sliceColors = _buildSliceColors(slices, wheel.palette, isDark);
     final wedge = (2 * pi) / slices.length;
+    final clampedSheenIntensity = materialSheenIntensity.clamp(0.6, 1.3);
+    final clampedDepthIntensity = materialDepthIntensity.clamp(0.6, 1.2);
     final materialSheenPaint = Paint()
       ..shader = RadialGradient(
-        center: const Alignment(-0.28, -0.34),
-        radius: 1.04,
+        center: materialSheenCenter,
+        radius: 0.86,
         colors: [
-          Colors.white.withValues(alpha: isDark ? 0.08 : 0.16),
-          Colors.white.withValues(alpha: isDark ? 0.02 : 0.06),
+          Colors.white.withValues(
+            alpha: (isDark ? 0.08 : 0.16) * clampedSheenIntensity,
+          ),
+          Colors.white.withValues(
+            alpha: (isDark ? 0.02 : 0.06) * clampedSheenIntensity,
+          ),
           Colors.transparent,
         ],
-        stops: const [0.0, 0.5, 1.0],
+        stops: const [0.0, 0.34, 1.0],
       ).createShader(wheelRect);
     final depthPaint = Paint()
       ..shader = RadialGradient(
-        center: const Alignment(0.32, 0.34),
-        radius: 1.08,
+        center: materialDepthCenter,
+        radius: 0.98,
         colors: [
           Colors.transparent,
-          Colors.black.withValues(alpha: isDark ? 0.07 : 0.05),
+          Colors.black.withValues(
+            alpha: (isDark ? 0.04 : 0.028) * clampedDepthIntensity,
+          ),
         ],
-        stops: const [0.58, 1.0],
+        stops: const [0.62, 1.0],
+      ).createShader(wheelRect);
+    final liquidFlowPaint = Paint()
+      ..blendMode = BlendMode.softLight
+      ..shader = LinearGradient(
+        begin: Alignment(
+          materialSheenCenter.x * 0.95,
+          materialSheenCenter.y * 0.95,
+        ),
+        end: Alignment(
+          -materialSheenCenter.x * 0.75,
+          -materialSheenCenter.y * 0.75,
+        ),
+        colors: [
+          Colors.white.withValues(
+            alpha: (isDark ? 0.08 : 0.12) * clampedSheenIntensity,
+          ),
+          Colors.white.withValues(
+            alpha: (isDark ? 0.018 : 0.035) * clampedSheenIntensity,
+          ),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.38, 1.0],
       ).createShader(wheelRect);
 
     for (var i = 0; i < slices.length; i++) {
@@ -162,6 +212,7 @@ class _WheelPainter extends CustomPainter {
       canvas.drawArc(wheelRect, start, wedge, true, paint);
       canvas.drawArc(wheelRect, start, wedge, true, materialSheenPaint);
       canvas.drawArc(wheelRect, start, wedge, true, depthPaint);
+      canvas.drawArc(wheelRect, start, wedge, true, liquidFlowPaint);
 
       final gloss = Paint()
         ..color = Colors.white.withValues(alpha: isDark ? 0.015 : 0.04)
@@ -579,6 +630,10 @@ class _WheelPainter extends CustomPainter {
     return oldDelegate.rotation != rotation ||
         oldDelegate.wheel != wheel ||
         oldDelegate.winnerItemId != winnerItemId ||
-        oldDelegate.brightness != brightness;
+        oldDelegate.brightness != brightness ||
+        oldDelegate.materialSheenCenter != materialSheenCenter ||
+        oldDelegate.materialDepthCenter != materialDepthCenter ||
+        oldDelegate.materialSheenIntensity != materialSheenIntensity ||
+        oldDelegate.materialDepthIntensity != materialDepthIntensity;
   }
 }
