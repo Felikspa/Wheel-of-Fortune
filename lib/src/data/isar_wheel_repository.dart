@@ -155,9 +155,18 @@ class IsarWheelRepository implements WheelRepository {
     if (settings == null) {
       return const AppSettingsModel();
     }
-    return AppSettingsModel(
+    Map<String, dynamic>? drawSettingsJson;
+    final rawDrawSettings = settings.drawSettingsJson;
+    if (rawDrawSettings != null && rawDrawSettings.isNotEmpty) {
+      final decoded = jsonDecode(rawDrawSettings);
+      if (decoded is Map) {
+        drawSettingsJson = _decodeStringKeyMap(decoded);
+      }
+    }
+    return AppSettingsModel.fromPersisted(
       localeOverride: settings.localeOverride,
       themeMode: settings.themeMode,
+      drawSettingsJson: drawSettingsJson,
     );
   }
 
@@ -166,10 +175,19 @@ class IsarWheelRepository implements WheelRepository {
     final record = AppSettingsRecord()
       ..id = 1
       ..localeOverride = settings.localeOverride
+      ..drawSettingsJson = jsonEncode(settings.toDrawSettingsJson())
       ..themeMode = settings.themeMode;
     await _db.writeTxn(() async {
       await _db.appSettingsRecords.put(record);
     });
+  }
+
+  Map<String, dynamic> _decodeStringKeyMap(Map source) {
+    final mapped = <String, dynamic>{};
+    for (final entry in source.entries) {
+      mapped[entry.key.toString()] = entry.value;
+    }
+    return mapped;
   }
 
   Future<void> _ensureSettingsExists() async {

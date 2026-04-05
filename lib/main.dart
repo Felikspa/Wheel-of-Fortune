@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'l10n/app_localizations.dart';
@@ -11,6 +12,7 @@ import 'src/ui/home_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await LiquidGlassWidgets.initialize();
   final controller = AppController(repository: IsarWheelRepository());
   await controller.initialize();
   runApp(WheelOfFortuneApp(controller: controller));
@@ -48,7 +50,9 @@ class WheelOfFortuneApp extends StatelessWidget {
             home: app.loading
                 ? Scaffold(
                     body: Center(
-                      child: Text(AppLocalizations.of(context)?.loading ?? 'Loading...'),
+                      child: Text(
+                        AppLocalizations.of(context)?.loading ?? 'Loading...',
+                      ),
                     ),
                   )
                 : const HomeShell(),

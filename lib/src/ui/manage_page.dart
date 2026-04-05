@@ -1,7 +1,6 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
@@ -9,6 +8,7 @@ import '../domain/models.dart';
 import '../services/wheel_codec.dart';
 import '../state/app_controller.dart';
 import 'widgets/item_editor_dialog.dart';
+import 'widgets/liquid_glass_chrome.dart';
 
 class ManagePage extends StatelessWidget {
   const ManagePage({super.key});
@@ -870,10 +870,59 @@ class _ActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OutlinedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 19),
-      label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final enabled = onPressed != null;
+    final bgColor = theme.colorScheme.surface.withValues(
+      alpha: isDark ? 0.32 : 0.56,
+    );
+    final borderColor = (theme.dividerTheme.color ?? Colors.transparent)
+        .withValues(alpha: isDark ? 0.95 : 1);
+    final fgColor =
+        theme.textTheme.labelLarge?.color ??
+        (isDark ? Colors.white : Colors.black);
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 180),
+      opacity: enabled ? 1 : 0.52,
+      child: SizedBox(
+        height: 50,
+        child: Material(
+          color: Colors.transparent,
+          child: Ink(
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: borderColor),
+            ),
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(14),
+              splashColor: Colors.transparent,
+              highlightColor: Colors.transparent,
+              hoverColor: Colors.transparent,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 19, color: fgColor),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: fgColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -891,41 +940,37 @@ class _FrostedPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-        child: Container(
+    final accentColor = theme.colorScheme.primary;
+    return LiquidGlassChrome(
+      borderRadius: 22,
+      accentColor: accentColor,
+      isDark: isDark,
+      shadowStrength: 0.9,
+      highlightStrength: 0.92,
+      child: GlassContainer(
+        useOwnLayer: true,
+        quality: GlassQuality.premium,
+        shape: const LiquidRoundedSuperellipse(borderRadius: 22),
+        settings: LiquidGlassSettings(
+          blur: 0,
+          thickness: isDark ? 16 : 14,
+          glassColor: accentColor.withValues(alpha: isDark ? 0.06 : 0.05),
+          lightIntensity: isDark ? 0.45 : 0.6,
+          ambientStrength: isDark ? 0.04 : 0.03,
+          refractiveIndex: 1.2,
+          saturation: 1.0,
+          chromaticAberration: 0,
+        ),
+        child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: isDark
-                  ? [
-                      const Color(0xFF1D212C).withValues(alpha: 0.78),
-                      const Color(0xFF141822).withValues(alpha: 0.74),
-                    ]
-                  : [
-                      Colors.white.withValues(alpha: 0.76),
-                      const Color(0xFFF8FAFF).withValues(alpha: 0.7),
-                    ],
-            ),
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
               color: isDark
                   ? Colors.white.withValues(alpha: 0.12)
                   : Colors.white.withValues(alpha: 0.64),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
           ),
-          padding: padding,
-          child: child,
+          child: Padding(padding: padding, child: child),
         ),
       ),
     );

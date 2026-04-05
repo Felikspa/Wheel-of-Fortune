@@ -137,4 +137,37 @@
   "newItemDefaultTitle": "New Item",
   "currentWheelSettings": "Current Wheel Settings",
   "appSettings": "App Settings"
+  ,
+  "drawMode": "Mode",
+  "displayModeWheel": "Wheel",
+  "displayModeCoin": "Coin",
+  "displayModeDice": "Dice",
+  "displayModeCard": "Card",
+  "notSelected": "Not selected",
+  "modeCoinHint": "Pick two items from this wheel and toss a coin.",
+  "modeDiceHint": "Map each face to an item, then roll to get the top face.",
+  "modeCardHint": "Shuffle to turn cards face-down, then tap one card to reveal.",
+  "coinSideA": "Coin Side A",
+  "coinSideB": "Coin Side B",
+  "coinAutoFilledPartner": "Second side auto-filled from previous partner.",
+  "coinNeedSelection": "Select at least one coin side.",
+  "coinNeedManualSecond": "No valid previous partner. Select the second side manually.",
+  "coinNeedDistinct": "Coin sides must be two different items.",
+  "coinToss": "Toss Coin",
+  "coinReady": "Ready",
+  "diceSides": "Dice Sides",
+  "diceMissingItem": "Missing item (select a replacement)",
+  "diceFaceNumber": "Face {face}",
+  "@diceFaceNumber": {
+    "placeholders": {
+      "face": {
+        "type": "String"
+      }
+    }
+  },
+  "diceDuplicateNotAllowed": "Each face must map to a different item.",
+  "diceNeedCompleteMapping": "Complete all faces with valid items before rolling.",
+  "diceRoll": "Roll Dice",
+  "cardRevealAllToggle": "Reveal all cards after pick",
+  "cardShuffle": "Shuffle"
 }

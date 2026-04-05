@@ -298,4 +298,81 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get appSettings => '应用设置';
+
+  @override
+  String get drawMode => '模式';
+
+  @override
+  String get displayModeWheel => '转盘';
+
+  @override
+  String get displayModeCoin => '硬币';
+
+  @override
+  String get displayModeDice => '骰子';
+
+  @override
+  String get displayModeCard => '抽卡';
+
+  @override
+  String get notSelected => '未选择';
+
+  @override
+  String get modeCoinHint => '从当前转盘里选择两个项目后掷硬币。';
+
+  @override
+  String get modeDiceHint => '先把每个面映射到项目，再掷骰取朝上结果。';
+
+  @override
+  String get modeCardHint => '点击打乱后翻背并洗牌，再点一张揭示结果。';
+
+  @override
+  String get coinSideA => '硬币正面';
+
+  @override
+  String get coinSideB => '硬币反面';
+
+  @override
+  String get coinAutoFilledPartner => '已根据上次搭档自动补齐另一面。';
+
+  @override
+  String get coinNeedSelection => '请先至少选择一个硬币面。';
+
+  @override
+  String get coinNeedManualSecond => '没有可用历史搭档，请手动选择第二面。';
+
+  @override
+  String get coinNeedDistinct => '硬币两面必须是不同项目。';
+
+  @override
+  String get coinToss => '掷硬币';
+
+  @override
+  String get coinReady => '准备就绪';
+
+  @override
+  String get diceSides => '骰子面数';
+
+  @override
+  String get diceMissingItem => '映射项目已缺失（请重新选择）';
+
+  @override
+  String diceFaceNumber(String face) {
+    return '第 $face 面';
+  }
+
+  @override
+  String get diceDuplicateNotAllowed => '每个面必须映射到不同项目。';
+
+  @override
+  String get diceNeedCompleteMapping => '请先把所有面映射为有效项目后再掷骰。';
+
+  @override
+  String get diceRoll => '掷骰子';
+
+  @override
+  String get cardRevealAllToggle => '揭示后翻开全部卡片';
+
+  @override
+  String get cardShuffle => '打乱';
 }

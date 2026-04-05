@@ -42,6 +42,7 @@ class WheelItemRecord {
 class AppSettingsRecord {
   Id id = 1;
   String? localeOverride;
+  String? drawSettingsJson;
 
   @Enumerated(EnumType.name)
   AppThemeMode themeMode = AppThemeMode.system;

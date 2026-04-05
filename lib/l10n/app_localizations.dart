@@ -649,6 +649,156 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'App Settings'**
   String get appSettings;
+
+  /// No description provided for @drawMode.
+  ///
+  /// In en, this message translates to:
+  /// **'Mode'**
+  String get drawMode;
+
+  /// No description provided for @displayModeWheel.
+  ///
+  /// In en, this message translates to:
+  /// **'Wheel'**
+  String get displayModeWheel;
+
+  /// No description provided for @displayModeCoin.
+  ///
+  /// In en, this message translates to:
+  /// **'Coin'**
+  String get displayModeCoin;
+
+  /// No description provided for @displayModeDice.
+  ///
+  /// In en, this message translates to:
+  /// **'Dice'**
+  String get displayModeDice;
+
+  /// No description provided for @displayModeCard.
+  ///
+  /// In en, this message translates to:
+  /// **'Card'**
+  String get displayModeCard;
+
+  /// No description provided for @notSelected.
+  ///
+  /// In en, this message translates to:
+  /// **'Not selected'**
+  String get notSelected;
+
+  /// No description provided for @modeCoinHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick two items from this wheel and toss a coin.'**
+  String get modeCoinHint;
+
+  /// No description provided for @modeDiceHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Map each face to an item, then roll to get the top face.'**
+  String get modeDiceHint;
+
+  /// No description provided for @modeCardHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Shuffle to turn cards face-down, then tap one card to reveal.'**
+  String get modeCardHint;
+
+  /// No description provided for @coinSideA.
+  ///
+  /// In en, this message translates to:
+  /// **'Coin Side A'**
+  String get coinSideA;
+
+  /// No description provided for @coinSideB.
+  ///
+  /// In en, this message translates to:
+  /// **'Coin Side B'**
+  String get coinSideB;
+
+  /// No description provided for @coinAutoFilledPartner.
+  ///
+  /// In en, this message translates to:
+  /// **'Second side auto-filled from previous partner.'**
+  String get coinAutoFilledPartner;
+
+  /// No description provided for @coinNeedSelection.
+  ///
+  /// In en, this message translates to:
+  /// **'Select at least one coin side.'**
+  String get coinNeedSelection;
+
+  /// No description provided for @coinNeedManualSecond.
+  ///
+  /// In en, this message translates to:
+  /// **'No valid previous partner. Select the second side manually.'**
+  String get coinNeedManualSecond;
+
+  /// No description provided for @coinNeedDistinct.
+  ///
+  /// In en, this message translates to:
+  /// **'Coin sides must be two different items.'**
+  String get coinNeedDistinct;
+
+  /// No description provided for @coinToss.
+  ///
+  /// In en, this message translates to:
+  /// **'Toss Coin'**
+  String get coinToss;
+
+  /// No description provided for @coinReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready'**
+  String get coinReady;
+
+  /// No description provided for @diceSides.
+  ///
+  /// In en, this message translates to:
+  /// **'Dice Sides'**
+  String get diceSides;
+
+  /// No description provided for @diceMissingItem.
+  ///
+  /// In en, this message translates to:
+  /// **'Missing item (select a replacement)'**
+  String get diceMissingItem;
+
+  /// No description provided for @diceFaceNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Face {face}'**
+  String diceFaceNumber(String face);
+
+  /// No description provided for @diceDuplicateNotAllowed.
+  ///
+  /// In en, this message translates to:
+  /// **'Each face must map to a different item.'**
+  String get diceDuplicateNotAllowed;
+
+  /// No description provided for @diceNeedCompleteMapping.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete all faces with valid items before rolling.'**
+  String get diceNeedCompleteMapping;
+
+  /// No description provided for @diceRoll.
+  ///
+  /// In en, this message translates to:
+  /// **'Roll Dice'**
+  String get diceRoll;
+
+  /// No description provided for @cardRevealAllToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reveal all cards after pick'**
+  String get cardRevealAllToggle;
+
+  /// No description provided for @cardShuffle.
+  ///
+  /// In en, this message translates to:
+  /// **'Shuffle'**
+  String get cardShuffle;
 }
 
 class _AppLocalizationsDelegate

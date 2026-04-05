@@ -303,4 +303,87 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get appSettings => 'App Settings';
+
+  @override
+  String get drawMode => 'Mode';
+
+  @override
+  String get displayModeWheel => 'Wheel';
+
+  @override
+  String get displayModeCoin => 'Coin';
+
+  @override
+  String get displayModeDice => 'Dice';
+
+  @override
+  String get displayModeCard => 'Card';
+
+  @override
+  String get notSelected => 'Not selected';
+
+  @override
+  String get modeCoinHint => 'Pick two items from this wheel and toss a coin.';
+
+  @override
+  String get modeDiceHint =>
+      'Map each face to an item, then roll to get the top face.';
+
+  @override
+  String get modeCardHint =>
+      'Shuffle to turn cards face-down, then tap one card to reveal.';
+
+  @override
+  String get coinSideA => 'Coin Side A';
+
+  @override
+  String get coinSideB => 'Coin Side B';
+
+  @override
+  String get coinAutoFilledPartner =>
+      'Second side auto-filled from previous partner.';
+
+  @override
+  String get coinNeedSelection => 'Select at least one coin side.';
+
+  @override
+  String get coinNeedManualSecond =>
+      'No valid previous partner. Select the second side manually.';
+
+  @override
+  String get coinNeedDistinct => 'Coin sides must be two different items.';
+
+  @override
+  String get coinToss => 'Toss Coin';
+
+  @override
+  String get coinReady => 'Ready';
+
+  @override
+  String get diceSides => 'Dice Sides';
+
+  @override
+  String get diceMissingItem => 'Missing item (select a replacement)';
+
+  @override
+  String diceFaceNumber(String face) {
+    return 'Face $face';
+  }
+
+  @override
+  String get diceDuplicateNotAllowed =>
+      'Each face must map to a different item.';
+
+  @override
+  String get diceNeedCompleteMapping =>
+      'Complete all faces with valid items before rolling.';
+
+  @override
+  String get diceRoll => 'Roll Dice';
+
+  @override
+  String get cardRevealAllToggle => 'Reveal all cards after pick';
+
+  @override
+  String get cardShuffle => 'Shuffle';
 }

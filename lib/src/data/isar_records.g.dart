@@ -3187,13 +3187,18 @@ const AppSettingsRecordSchema = CollectionSchema(
   name: r'AppSettingsRecord',
   id: -5800169138830006153,
   properties: {
-    r'localeOverride': PropertySchema(
+    r'drawSettingsJson': PropertySchema(
       id: 0,
+      name: r'drawSettingsJson',
+      type: IsarType.string,
+    ),
+    r'localeOverride': PropertySchema(
+      id: 1,
       name: r'localeOverride',
       type: IsarType.string,
     ),
     r'themeMode': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'themeMode',
       type: IsarType.string,
       enumMap: _AppSettingsRecordthemeModeEnumValueMap,
@@ -3220,6 +3225,12 @@ int _appSettingsRecordEstimateSize(
 ) {
   var bytesCount = offsets.last;
   {
+    final value = object.drawSettingsJson;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.localeOverride;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -3235,8 +3246,9 @@ void _appSettingsRecordSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.localeOverride);
-  writer.writeString(offsets[1], object.themeMode.name);
+  writer.writeString(offsets[0], object.drawSettingsJson);
+  writer.writeString(offsets[1], object.localeOverride);
+  writer.writeString(offsets[2], object.themeMode.name);
 }
 
 AppSettingsRecord _appSettingsRecordDeserialize(
@@ -3246,10 +3258,11 @@ AppSettingsRecord _appSettingsRecordDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = AppSettingsRecord();
+  object.drawSettingsJson = reader.readStringOrNull(offsets[0]);
   object.id = id;
-  object.localeOverride = reader.readStringOrNull(offsets[0]);
+  object.localeOverride = reader.readStringOrNull(offsets[1]);
   object.themeMode = _AppSettingsRecordthemeModeValueEnumMap[
-          reader.readStringOrNull(offsets[1])] ??
+          reader.readStringOrNull(offsets[2])] ??
       AppThemeMode.system;
   return object;
 }
@@ -3264,6 +3277,8 @@ P _appSettingsRecordDeserializeProp<P>(
     case 0:
       return (reader.readStringOrNull(offset)) as P;
     case 1:
+      return (reader.readStringOrNull(offset)) as P;
+    case 2:
       return (_AppSettingsRecordthemeModeValueEnumMap[
               reader.readStringOrNull(offset)] ??
           AppThemeMode.system) as P;
@@ -3379,6 +3394,160 @@ extension AppSettingsRecordQueryWhere
 
 extension AppSettingsRecordQueryFilter
     on QueryBuilder<AppSettingsRecord, AppSettingsRecord, QFilterCondition> {
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      drawSettingsJsonIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'drawSettingsJson',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      drawSettingsJsonIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'drawSettingsJson',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      drawSettingsJsonEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'drawSettingsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      drawSettingsJsonGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'drawSettingsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      drawSettingsJsonLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'drawSettingsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      drawSettingsJsonBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'drawSettingsJson',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      drawSettingsJsonStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'drawSettingsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      drawSettingsJsonEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'drawSettingsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      drawSettingsJsonContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'drawSettingsJson',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      drawSettingsJsonMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'drawSettingsJson',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      drawSettingsJsonIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'drawSettingsJson',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
+      drawSettingsJsonIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'drawSettingsJson',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterFilterCondition>
       idEqualTo(Id value) {
     return QueryBuilder.apply(this, (query) {
@@ -3735,6 +3904,20 @@ extension AppSettingsRecordQueryLinks
 extension AppSettingsRecordQuerySortBy
     on QueryBuilder<AppSettingsRecord, AppSettingsRecord, QSortBy> {
   QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+      sortByDrawSettingsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'drawSettingsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+      sortByDrawSettingsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'drawSettingsJson', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
       sortByLocaleOverride() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'localeOverride', Sort.asc);
@@ -3765,6 +3948,20 @@ extension AppSettingsRecordQuerySortBy
 
 extension AppSettingsRecordQuerySortThenBy
     on QueryBuilder<AppSettingsRecord, AppSettingsRecord, QSortThenBy> {
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+      thenByDrawSettingsJson() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'drawSettingsJson', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy>
+      thenByDrawSettingsJsonDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'drawSettingsJson', Sort.desc);
+    });
+  }
+
   QueryBuilder<AppSettingsRecord, AppSettingsRecord, QAfterSortBy> thenById() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'id', Sort.asc);
@@ -3810,6 +4007,14 @@ extension AppSettingsRecordQuerySortThenBy
 extension AppSettingsRecordQueryWhereDistinct
     on QueryBuilder<AppSettingsRecord, AppSettingsRecord, QDistinct> {
   QueryBuilder<AppSettingsRecord, AppSettingsRecord, QDistinct>
+      distinctByDrawSettingsJson({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'drawSettingsJson',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, AppSettingsRecord, QDistinct>
       distinctByLocaleOverride({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'localeOverride',
@@ -3830,6 +4035,13 @@ extension AppSettingsRecordQueryProperty
   QueryBuilder<AppSettingsRecord, int, QQueryOperations> idProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'id');
+    });
+  }
+
+  QueryBuilder<AppSettingsRecord, String?, QQueryOperations>
+      drawSettingsJsonProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'drawSettingsJson');
     });
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:ui';
 
@@ -7,8 +8,8 @@ import 'package:provider/provider.dart';
 import '../../l10n/app_localizations.dart';
 import '../domain/models.dart';
 import '../state/app_controller.dart';
+import 'draw_mode_page.dart';
 import 'manage_page.dart';
-import 'wheel_page.dart';
 import 'widgets/page_dots.dart';
 
 class HomeShell extends StatefulWidget {
@@ -70,7 +71,7 @@ class _HomeShellState extends State<HomeShell> {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final palette = controller.selectedWheel?.palette ?? 'random';
         final orbColors = _paletteBackdropOrbColors(palette, isDark);
-        final canOpenDrawer = _currentPage == 0 && !controller.spinning;
+        final canOpenDrawer = _currentPage == 0 && !controller.busy;
         return Scaffold(
           key: _scaffoldKey,
           drawerEnableOpenDragGesture: canOpenDrawer,
@@ -81,12 +82,15 @@ class _HomeShellState extends State<HomeShell> {
           drawer: _WheelDrawer(
             wheels: controller.wheels,
             selectedWheelId: controller.selectedWheelId,
+            selectedMode: controller.selectedDisplayMode,
             accentColor: _paletteDrawerAccentColor(palette, isDark),
             title: l10n.wheels,
+            modeLabel: l10n.drawMode,
             emptyLabel: l10n.noWheelsYet,
             onSelectWheel: (wheelId) {
               controller.selectWheel(wheelId);
             },
+            onSelectMode: (mode) => controller.setSelectedDisplayMode(mode),
           ),
           body: DecoratedBox(
             decoration: BoxDecoration(
@@ -123,13 +127,13 @@ class _HomeShellState extends State<HomeShell> {
                     children: [
                       PageView(
                         controller: _pageController,
-                        physics: controller.spinning
+                        physics: controller.busy
                             ? const NeverScrollableScrollPhysics()
                             : const BouncingScrollPhysics(),
                         onPageChanged: (value) =>
                             setState(() => _currentPage = value),
                         children: [
-                          WheelPage(onOpenManage: _goToManagePage),
+                          DrawModePage(onOpenManage: _goToManagePage),
                           const ManagePage(),
                         ],
                       ),
@@ -223,24 +227,31 @@ class _WheelDrawer extends StatelessWidget {
   const _WheelDrawer({
     required this.wheels,
     required this.selectedWheelId,
+    required this.selectedMode,
     required this.accentColor,
     required this.title,
+    required this.modeLabel,
     required this.emptyLabel,
     required this.onSelectWheel,
+    required this.onSelectMode,
   });
 
   final List<WheelModel> wheels;
   final int? selectedWheelId;
+  final DrawDisplayMode selectedMode;
   final Color accentColor;
   final String title;
+  final String modeLabel;
   final String emptyLabel;
   final ValueChanged<int> onSelectWheel;
+  final Future<void> Function(DrawDisplayMode mode) onSelectMode;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final primary = accentColor;
+    final drawerTextColor = isDark ? Colors.white : Colors.black;
     final width = min(MediaQuery.of(context).size.width * 0.84, 330.0);
     return Drawer(
       width: width,
@@ -254,48 +265,32 @@ class _WheelDrawer extends StatelessWidget {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(30),
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
               child: Container(
                 decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: isDark
                         ? [
-                            Color.lerp(
-                              primary,
-                              const Color(0xFF111621),
-                              0.86,
-                            )!.withValues(alpha: 0.8),
-                            Color.lerp(
-                              primary,
-                              const Color(0xFF0B1018),
-                              0.92,
-                            )!.withValues(alpha: 0.78),
+                            const Color(0xFF111622).withValues(alpha: 0.62),
+                            const Color(0xFF0A0F19).withValues(alpha: 0.58),
                           ]
                         : [
-                            Color.lerp(
-                              primary,
-                              Colors.white,
-                              0.92,
-                            )!.withValues(alpha: 0.82),
-                            Color.lerp(
-                              primary,
-                              const Color(0xFFF5F8FF),
-                              0.9,
-                            )!.withValues(alpha: 0.74),
+                            const Color(0xFF1A2233).withValues(alpha: 0.5),
+                            const Color(0xFF131A28).withValues(alpha: 0.46),
                           ],
                   ),
                   border: Border.all(
-                    color: primary.withValues(alpha: isDark ? 0.3 : 0.2),
+                    color: primary.withValues(alpha: isDark ? 0.28 : 0.24),
                   ),
-                  borderRadius: BorderRadius.circular(30),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(
-                        alpha: isDark ? 0.24 : 0.1,
+                        alpha: isDark ? 0.36 : 0.24,
                       ),
-                      blurRadius: 30,
+                      blurRadius: 26,
                       offset: const Offset(0, 12),
                     ),
                   ],
@@ -306,25 +301,18 @@ class _WheelDrawer extends StatelessWidget {
                       padding: const EdgeInsets.fromLTRB(16, 16, 12, 14),
                       child: Row(
                         children: [
-                          Container(
-                            width: 34,
-                            height: 34,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: primary.withValues(
-                                alpha: isDark ? 0.26 : 0.18,
-                              ),
-                              border: Border.all(
-                                color: primary.withValues(
-                                  alpha: isDark ? 0.4 : 0.34,
-                                ),
-                              ),
-                            ),
-                            child: Icon(
-                              Icons.cached_rounded,
-                              size: 18,
-                              color: primary,
-                            ),
+                          _ModeDropdown(
+                            selectedMode: selectedMode,
+                            modeLabel: modeLabel,
+                            accentColor: primary,
+                            isDark: isDark,
+                            textColor: drawerTextColor,
+                            onChanged: (mode) async {
+                              await onSelectMode(mode);
+                              if (context.mounted) {
+                                Navigator.of(context).pop();
+                              }
+                            },
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -335,19 +323,26 @@ class _WheelDrawer extends StatelessWidget {
                                   title,
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w700,
+                                    color: drawerTextColor,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   '${wheels.length}',
-                                  style: theme.textTheme.bodySmall,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: drawerTextColor,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           IconButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.close_rounded, size: 19),
+                            icon: Icon(
+                              Icons.close_rounded,
+                              size: 19,
+                              color: drawerTextColor,
+                            ),
                             visualDensity: VisualDensity.compact,
                           ),
                         ],
@@ -362,7 +357,9 @@ class _WheelDrawer extends StatelessWidget {
                                 child: Text(
                                   emptyLabel,
                                   textAlign: TextAlign.center,
-                                  style: theme.textTheme.bodyMedium,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: drawerTextColor,
+                                  ),
                                 ),
                               ),
                             )
@@ -383,6 +380,7 @@ class _WheelDrawer extends StatelessWidget {
                                   wheel: wheel,
                                   selected: selected,
                                   accentColor: primary,
+                                  textColor: drawerTextColor,
                                   onTap: () {
                                     onSelectWheel(wheel.id);
                                     Navigator.of(context).pop();
@@ -402,17 +400,112 @@ class _WheelDrawer extends StatelessWidget {
   }
 }
 
+class _ModeDropdown extends StatelessWidget {
+  const _ModeDropdown({
+    required this.selectedMode,
+    required this.modeLabel,
+    required this.accentColor,
+    required this.isDark,
+    required this.textColor,
+    required this.onChanged,
+  });
+
+  final DrawDisplayMode selectedMode;
+  final String modeLabel;
+  final Color accentColor;
+  final bool isDark;
+  final Color textColor;
+  final Future<void> Function(DrawDisplayMode mode) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: isDark
+            ? const Color(0xFF0E1420).withValues(alpha: 0.54)
+            : const Color(0xFF141D2C).withValues(alpha: 0.42),
+        border: Border.all(
+          color: accentColor.withValues(alpha: isDark ? 0.34 : 0.28),
+        ),
+      ),
+      child: Theme(
+        data: theme.copyWith(
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
+          hoverColor: Colors.transparent,
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<DrawDisplayMode>(
+            value: selectedMode,
+            focusColor: Colors.transparent,
+            icon: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: accentColor,
+              size: 18,
+            ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: textColor),
+            items: [
+              DropdownMenuItem(
+                value: DrawDisplayMode.wheel,
+                child: Text(
+                  '$modeLabel: ${l10n.displayModeWheel}',
+                  style: TextStyle(color: textColor),
+                ),
+              ),
+              DropdownMenuItem(
+                value: DrawDisplayMode.coin,
+                child: Text(
+                  '$modeLabel: ${l10n.displayModeCoin}',
+                  style: TextStyle(color: textColor),
+                ),
+              ),
+              DropdownMenuItem(
+                value: DrawDisplayMode.dice,
+                child: Text(
+                  '$modeLabel: ${l10n.displayModeDice}',
+                  style: TextStyle(color: textColor),
+                ),
+              ),
+              DropdownMenuItem(
+                value: DrawDisplayMode.card,
+                child: Text(
+                  '$modeLabel: ${l10n.displayModeCard}',
+                  style: TextStyle(color: textColor),
+                ),
+              ),
+            ],
+            onChanged: (value) {
+              if (value == null || value == selectedMode) {
+                return;
+              }
+              unawaited(onChanged(value));
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _WheelDrawerTile extends StatelessWidget {
   const _WheelDrawerTile({
     required this.wheel,
     required this.selected,
     required this.accentColor,
+    required this.textColor,
     required this.onTap,
   });
 
   final WheelModel wheel;
   final bool selected;
   final Color accentColor;
+  final Color textColor;
   final VoidCallback onTap;
 
   @override
@@ -424,6 +517,9 @@ class _WheelDrawerTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        hoverColor: Colors.transparent,
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 190),
@@ -436,15 +532,22 @@ class _WheelDrawerTile extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      primary.withValues(alpha: isDark ? 0.26 : 0.18),
-                      primary.withValues(alpha: isDark ? 0.18 : 0.12),
+                      primary.withValues(alpha: isDark ? 0.24 : 0.2),
+                      primary.withValues(alpha: isDark ? 0.16 : 0.14),
                     ],
                   )
-                : null,
-            color: selected
-                ? null
-                : theme.colorScheme.surface.withValues(
-                    alpha: isDark ? 0.26 : 0.5,
+                : LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [
+                            const Color(0xFF131B29).withValues(alpha: 0.48),
+                            const Color(0xFF0F1622).withValues(alpha: 0.42),
+                          ]
+                        : [
+                            const Color(0xFF1A2231).withValues(alpha: 0.34),
+                            const Color(0xFF141C2B).withValues(alpha: 0.28),
+                          ],
                   ),
             border: Border.all(
               color: selected
@@ -472,6 +575,7 @@ class _WheelDrawerTile extends StatelessWidget {
                   '${wheel.items.length}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontWeight: FontWeight.w700,
+                    color: textColor,
                   ),
                 ),
               ),
@@ -483,6 +587,7 @@ class _WheelDrawerTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: textColor,
                   ),
                 ),
               ),

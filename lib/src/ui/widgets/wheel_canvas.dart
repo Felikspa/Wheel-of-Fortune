@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../domain/models.dart';
 import '../app_theme.dart';
 import '../color_utils.dart';
+import '../wheel_ui_tuning.dart';
 
 final int _sessionColorSeed = DateTime.now().millisecondsSinceEpoch;
 
@@ -16,6 +17,7 @@ class WheelCanvas extends StatelessWidget {
     required this.winnerItemId,
     required this.onTapSlice,
     required this.enabled,
+    required this.detailScale,
     required this.materialSheenCenter,
     required this.materialDepthCenter,
     required this.materialSheenIntensity,
@@ -27,6 +29,7 @@ class WheelCanvas extends StatelessWidget {
   final int? winnerItemId;
   final ValueChanged<int> onTapSlice;
   final bool enabled;
+  final double detailScale;
   final Alignment materialSheenCenter;
   final Alignment materialDepthCenter;
   final double materialSheenIntensity;
@@ -61,6 +64,7 @@ class WheelCanvas extends StatelessWidget {
                   rotation: rotation,
                   winnerItemId: winnerItemId,
                   brightness: Theme.of(context).brightness,
+                  detailScale: detailScale,
                   materialSheenCenter: materialSheenCenter,
                   materialDepthCenter: materialDepthCenter,
                   materialSheenIntensity: materialSheenIntensity,
@@ -108,6 +112,7 @@ class _WheelPainter extends CustomPainter {
     required this.rotation,
     required this.winnerItemId,
     required this.brightness,
+    required this.detailScale,
     required this.materialSheenCenter,
     required this.materialDepthCenter,
     required this.materialSheenIntensity,
@@ -118,6 +123,7 @@ class _WheelPainter extends CustomPainter {
   final double rotation;
   final int? winnerItemId;
   final Brightness brightness;
+  final double detailScale;
   final Alignment materialSheenCenter;
   final Alignment materialDepthCenter;
   final double materialSheenIntensity;
@@ -127,10 +133,11 @@ class _WheelPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
-    final wheelRadius = radius * 0.88;
+    final wheelRadius = radius * WheelUiTuning.paintedWheelRadiusFactor;
     final wheelRect = Rect.fromCircle(center: center, radius: wheelRadius);
     final slices = wheel.items;
     final isDark = brightness == Brightness.dark;
+    final zoom = detailScale.clamp(1.0, 3.2);
     final hubRadius = wheelRadius * 0.14;
     final hubAccentColor = _paletteAccentColor(wheel.palette, isDark);
 
@@ -151,6 +158,12 @@ class _WheelPainter extends CustomPainter {
 
     final sliceColors = _buildSliceColors(slices, wheel.palette, isDark);
     final wedge = (2 * pi) / slices.length;
+    final labelPolicy = _buildLabelPolicy(
+      itemCount: slices.length,
+      wheelRadius: wheelRadius,
+      wedge: wedge,
+      zoom: zoom,
+    );
     final clampedSheenIntensity = materialSheenIntensity.clamp(0.6, 1.3);
     final clampedDepthIntensity = materialDepthIntensity.clamp(0.6, 1.2);
     final materialSheenPaint = Paint()
@@ -225,46 +238,50 @@ class _WheelPainter extends CustomPainter {
         canvas.drawArc(wheelRect, start, wedge, true, highlight);
       }
 
-      final labelAngle = start + (wedge / 2);
-      final labelInnerRadius = wheelRadius * 0.3;
-      final labelOuterRadius = wheelRadius * 0.9;
-      final labelRadius = (labelInnerRadius + labelOuterRadius) / 2;
-      final labelOffset = Offset(
-        center.dx + cos(labelAngle) * labelRadius,
-        center.dy + sin(labelAngle) * labelRadius,
-      );
-      final maxLabelWidth = max(32.0, labelOuterRadius - labelInnerRadius);
-      final text = item.title.trim();
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: text,
-          style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.96),
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.2,
-            fontSize: 12,
-            shadows: [
-              Shadow(
-                blurRadius: 8,
-                color: Colors.black.withValues(alpha: 0.45),
-                offset: const Offset(0, 1),
+      if (labelPolicy.show) {
+        final labelAngle = start + (wedge / 2);
+        final labelOffset = Offset(
+          center.dx + cos(labelAngle) * labelPolicy.radius,
+          center.dy + sin(labelAngle) * labelPolicy.radius,
+        );
+        final text = _fitTitleForPolicy(
+          item.title.trim(),
+          maxChars: labelPolicy.maxChars,
+          singleCharOnly: labelPolicy.singleCharOnly,
+        );
+        if (text.isNotEmpty) {
+          final textPainter = TextPainter(
+            text: TextSpan(
+              text: text,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.96),
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+                fontSize: labelPolicy.fontSize,
+                shadows: [
+                  Shadow(
+                    blurRadius: 8,
+                    color: Colors.black.withValues(alpha: 0.45),
+                    offset: const Offset(0, 1),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-        maxLines: 1,
-        ellipsis: '…',
-      )..layout(maxWidth: maxLabelWidth);
-      final textRotation = labelAngle;
-      canvas.save();
-      canvas.translate(labelOffset.dx, labelOffset.dy);
-      canvas.rotate(textRotation);
-      textPainter.paint(
-        canvas,
-        Offset(-textPainter.width / 2, -textPainter.height / 2),
-      );
-      canvas.restore();
+            ),
+            textDirection: TextDirection.ltr,
+            maxLines: labelPolicy.maxLines,
+            ellipsis: labelPolicy.showEllipsis ? '…' : null,
+          )..layout(maxWidth: labelPolicy.maxWidth);
+          final textRotation = labelAngle;
+          canvas.save();
+          canvas.translate(labelOffset.dx, labelOffset.dy);
+          canvas.rotate(textRotation);
+          textPainter.paint(
+            canvas,
+            Offset(-textPainter.width / 2, -textPainter.height / 2),
+          );
+          canvas.restore();
+        }
+      }
     }
 
     final dividerPaint = Paint()
@@ -281,14 +298,6 @@ class _WheelPainter extends CustomPainter {
       canvas.drawLine(p1, p2, dividerPaint);
     }
 
-    canvas.drawCircle(
-      center,
-      wheelRadius,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.6
-        ..color = Colors.white.withValues(alpha: isDark ? 0.3 : 0.74),
-    );
     _drawCenterHub(canvas, center, wheelRadius, isDark, hubAccentColor);
     _drawMiniPointer(
       canvas: canvas,
@@ -296,6 +305,150 @@ class _WheelPainter extends CustomPainter {
       hubRadius: hubRadius,
       isDark: isDark,
       color: hubAccentColor,
+    );
+  }
+
+  _LabelPolicy _buildLabelPolicy({
+    required int itemCount,
+    required double wheelRadius,
+    required double wedge,
+    required double zoom,
+  }) {
+    final density =
+        ((itemCount - WheelUiTuning.densityBaseCount) /
+                WheelUiTuning.densitySpanCount)
+            .clamp(0.0, 1.0);
+    final baseFontSize =
+        (WheelUiTuning.baseFontStart -
+                (density * WheelUiTuning.baseFontDensityDrop))
+            .clamp(WheelUiTuning.baseFontMin, WheelUiTuning.baseFontMax);
+    final zoomFontGain =
+        (WheelUiTuning.zoomFontGainStart -
+                (density * WheelUiTuning.zoomFontGainDensityDrop))
+            .clamp(
+              WheelUiTuning.zoomFontGainMin,
+              WheelUiTuning.zoomFontGainMax,
+            );
+    final maxFontSize = max(
+      baseFontSize + WheelUiTuning.maxFontBaseExtra,
+      (WheelUiTuning.maxFontStart -
+              (density * WheelUiTuning.maxFontDensityDrop))
+          .clamp(WheelUiTuning.maxFontClampMin, WheelUiTuning.maxFontClampMax),
+    );
+    final fontSize = (baseFontSize + (zoom - 1) * zoomFontGain).clamp(
+      baseFontSize,
+      maxFontSize,
+    );
+
+    final outerTextRadius = wheelRadius * 0.88;
+    final arcCapacity = wedge * outerTextRadius;
+    // Keep baseline visibility at 1x; zoom only expands readability.
+    final arcZoomGain =
+        (WheelUiTuning.arcZoomGainStart +
+                (zoom - 1) * WheelUiTuning.arcZoomGainPerZoom)
+            .clamp(
+              WheelUiTuning.arcZoomGainStart,
+              WheelUiTuning.arcZoomGainMax,
+            );
+    final effectiveArc = arcCapacity * arcZoomGain;
+    final minArcFactor = itemCount <= WheelUiTuning.lowItemCountThreshold
+        ? (WheelUiTuning.minArcFactorLowBase +
+              density * WheelUiTuning.minArcFactorLowDensity)
+        : (WheelUiTuning.minArcFactorHighBase +
+              density * WheelUiTuning.minArcFactorHighDensity);
+    final minOneCharArc = fontSize * minArcFactor;
+    if (effectiveArc < minOneCharArc) {
+      return const _LabelPolicy.hidden();
+    }
+
+    final strictSingleChar =
+        itemCount >= WheelUiTuning.strictSingleCharMinItems &&
+        effectiveArc <
+            fontSize *
+                (WheelUiTuning.strictSingleCharBase +
+                    density * WheelUiTuning.strictSingleCharDensity);
+    final relaxedCharsCap = max(
+      WheelUiTuning.minRelaxedChars,
+      (effectiveArc / (fontSize * WheelUiTuning.relaxedCharsWidthFactor))
+          .floor(),
+    );
+    final maxChars = strictSingleChar ? 1 : relaxedCharsCap;
+    final singleCharOnly = strictSingleChar;
+
+    var radiusFactor =
+        (WheelUiTuning.labelRadiusBase +
+                density * WheelUiTuning.labelRadiusDensityGain +
+                (zoom - 1) * WheelUiTuning.labelRadiusZoomGain)
+            .clamp(WheelUiTuning.labelRadiusMin, WheelUiTuning.labelRadiusMax);
+    if (singleCharOnly) {
+      radiusFactor = (radiusFactor + WheelUiTuning.labelRadiusSingleCharBoost)
+          .clamp(
+            WheelUiTuning.labelRadiusMin,
+            WheelUiTuning.labelRadiusSingleCharMax,
+          );
+    }
+    final radius = wheelRadius * radiusFactor;
+
+    final innerBoundary =
+        wheelRadius *
+        (WheelUiTuning.innerBoundaryBase +
+            density * WheelUiTuning.innerBoundaryDensityGain);
+    final outerBoundary = wheelRadius * WheelUiTuning.outerBoundaryFactor;
+    final radialWidth = (outerBoundary - innerBoundary).clamp(
+      WheelUiTuning.radialWidthMin,
+      wheelRadius,
+    );
+    final lowZoomWidthBoost =
+        (WheelUiTuning.lowZoomWidthBoostStart -
+                (zoom - 1) * WheelUiTuning.lowZoomWidthBoostPerZoom)
+            .clamp(
+              WheelUiTuning.lowZoomWidthBoostMin,
+              WheelUiTuning.lowZoomWidthBoostStart,
+            );
+    final arcWidthCap =
+        (effectiveArc * WheelUiTuning.arcWidthCapFactor * lowZoomWidthBoost)
+            .clamp(
+              fontSize * WheelUiTuning.arcWidthCapMinFontFactor,
+              wheelRadius * WheelUiTuning.arcWidthCapMaxWheelFactor,
+            );
+    final maxWidth = singleCharOnly
+        ? fontSize * WheelUiTuning.singleCharWidthFactor
+        : min(arcWidthCap, radialWidth * 2);
+    const maxLines = 1;
+    const showEllipsis = false;
+
+    return _LabelPolicy(
+      show: true,
+      singleCharOnly: singleCharOnly,
+      maxChars: maxChars,
+      radius: radius,
+      maxWidth: maxWidth,
+      fontSize: fontSize,
+      maxLines: maxLines,
+      showEllipsis: showEllipsis,
+    );
+  }
+
+  String _fitTitleForPolicy(
+    String rawTitle, {
+    required int maxChars,
+    required bool singleCharOnly,
+  }) {
+    if (rawTitle.isEmpty || maxChars <= 0) {
+      return '';
+    }
+    final runes = rawTitle.runes.toList();
+    if (runes.isEmpty) {
+      return '';
+    }
+    if (singleCharOnly) {
+      return String.fromCharCode(runes.first);
+    }
+    if (runes.length <= maxChars + WheelUiTuning.preTrimExtraChars) {
+      return rawTitle;
+    }
+    return String.fromCharCodes(
+      runes.take(maxChars + WheelUiTuning.preTrimExtraChars),
     );
   }
 
@@ -631,9 +784,42 @@ class _WheelPainter extends CustomPainter {
         oldDelegate.wheel != wheel ||
         oldDelegate.winnerItemId != winnerItemId ||
         oldDelegate.brightness != brightness ||
+        oldDelegate.detailScale != detailScale ||
         oldDelegate.materialSheenCenter != materialSheenCenter ||
         oldDelegate.materialDepthCenter != materialDepthCenter ||
         oldDelegate.materialSheenIntensity != materialSheenIntensity ||
         oldDelegate.materialDepthIntensity != materialDepthIntensity;
   }
+}
+
+class _LabelPolicy {
+  const _LabelPolicy({
+    required this.show,
+    required this.singleCharOnly,
+    required this.maxChars,
+    required this.radius,
+    required this.maxWidth,
+    required this.fontSize,
+    required this.maxLines,
+    required this.showEllipsis,
+  });
+
+  const _LabelPolicy.hidden()
+    : show = false,
+      singleCharOnly = false,
+      maxChars = 0,
+      radius = 0,
+      maxWidth = 0,
+      fontSize = 12,
+      maxLines = 1,
+      showEllipsis = true;
+
+  final bool show;
+  final bool singleCharOnly;
+  final int maxChars;
+  final double radius;
+  final double maxWidth;
+  final double fontSize;
+  final int maxLines;
+  final bool showEllipsis;
 }

@@ -43,6 +43,20 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> openDrawer(WidgetTester tester) async {
+    final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold).first);
+    scaffoldState.openDrawer();
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> switchMode(WidgetTester tester, String targetModeLabel) async {
+    await openDrawer(tester);
+    await tester.tap(find.text('Mode: Wheel').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(targetModeLabel).last);
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('supports horizontal navigation to manage page', (tester) async {
     await pumpApp(tester);
 
@@ -61,5 +75,42 @@ void main() {
     await tester.drag(find.byType(PageView), const Offset(-500, 0));
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('Wheels'), findsNothing);
+  });
+
+  testWidgets('drawer mode dropdown switches to coin mode and closes drawer', (tester) async {
+    await pumpApp(tester);
+
+    await switchMode(tester, 'Mode: Coin');
+    expect(find.text('Toss Coin'), findsOneWidget);
+    final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold).first);
+    expect(scaffoldState.isDrawerOpen, isFalse);
+  });
+
+  testWidgets('dice mode roll button is disabled when mapping is incomplete', (tester) async {
+    await pumpApp(tester);
+
+    await switchMode(tester, 'Mode: Dice');
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Roll Dice'),
+    );
+    expect(button.onPressed, isNull);
+  });
+
+  testWidgets('card mode requires shuffle before reveal', (tester) async {
+    await pumpApp(tester);
+
+    await switchMode(tester, 'Mode: Card');
+    expect(find.text('No result yet'), findsOneWidget);
+    await tester.tap(find.text('Option A').first);
+    await tester.pumpAndSettle();
+    expect(find.text('No result yet'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Shuffle'));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.style_rounded).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('No result yet'), findsNothing);
   });
 }

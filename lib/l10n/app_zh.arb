@@ -136,5 +136,37 @@
   "newWheelDefaultName": "新转盘",
   "newItemDefaultTitle": "新项目",
   "currentWheelSettings": "当前转盘设置",
-  "appSettings": "应用设置"
+  "appSettings": "应用设置",
+  "drawMode": "模式",
+  "displayModeWheel": "转盘",
+  "displayModeCoin": "硬币",
+  "displayModeDice": "骰子",
+  "displayModeCard": "抽卡",
+  "notSelected": "未选择",
+  "modeCoinHint": "从当前转盘里选择两个项目后掷硬币。",
+  "modeDiceHint": "先把每个面映射到项目，再掷骰取朝上结果。",
+  "modeCardHint": "点击打乱后翻背并洗牌，再点一张揭示结果。",
+  "coinSideA": "硬币正面",
+  "coinSideB": "硬币反面",
+  "coinAutoFilledPartner": "已根据上次搭档自动补齐另一面。",
+  "coinNeedSelection": "请先至少选择一个硬币面。",
+  "coinNeedManualSecond": "没有可用历史搭档，请手动选择第二面。",
+  "coinNeedDistinct": "硬币两面必须是不同项目。",
+  "coinToss": "掷硬币",
+  "coinReady": "准备就绪",
+  "diceSides": "骰子面数",
+  "diceMissingItem": "映射项目已缺失（请重新选择）",
+  "diceFaceNumber": "第 {face} 面",
+  "@diceFaceNumber": {
+    "placeholders": {
+      "face": {
+        "type": "String"
+      }
+    }
+  },
+  "diceDuplicateNotAllowed": "每个面必须映射到不同项目。",
+  "diceNeedCompleteMapping": "请先把所有面映射为有效项目后再掷骰。",
+  "diceRoll": "掷骰子",
+  "cardRevealAllToggle": "揭示后翻开全部卡片",
+  "cardShuffle": "打乱"
 }

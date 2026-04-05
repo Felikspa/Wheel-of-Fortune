@@ -1,13 +1,18 @@
+import 'dart:async';
 import 'dart:math';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../domain/models.dart';
+import '../services/spin_engine.dart';
 import '../state/app_controller.dart';
+import 'widgets/liquid_glass_chrome.dart';
+import 'wheel_ui_tuning.dart';
 import 'widgets/wheel_canvas.dart';
 
 class WheelPage extends StatefulWidget {
@@ -19,12 +24,11 @@ class WheelPage extends StatefulWidget {
   State<WheelPage> createState() => _WheelPageState();
 }
 
-class _WheelPageState extends State<WheelPage>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _animationController;
+class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
+  late final TransformationController _wheelTransformController;
+  late final Ticker _spinTicker;
   double _rotation = 0;
   double _baseRotation = 0;
-  Animation<double>? _rotationAnimation;
   int? _lastSelectedWheelId;
   Brightness? _lastBrightness;
   String? _lastPalette;
@@ -43,24 +47,51 @@ class _WheelPageState extends State<WheelPage>
   Alignment _sliceDepthCenter = const Alignment(0.2, 0.16);
   double _sliceSheenIntensity = 1.0;
   double _sliceDepthIntensity = 1.0;
+  double _wheelDetailScale = 1.0;
+  double? _lastLayoutWheelSize;
+  Size _wheelViewportSize = Size.zero;
+  double _wheelBaseSize = 0;
+  bool _syncingWheelTransform = false;
+  bool _viewportResetScheduled = false;
+  int? _edgePointerId;
+  bool _edgePointerOnRim = false;
+  Offset? _edgePrevLocal;
+  Offset? _edgeLastLocal;
+  Duration? _edgePrevTime;
+  Duration? _edgeLastTime;
+  Timer? _edgePressTimer;
+  Timer? _brakeHapticTimer;
+  bool _edgeBrakeActive = false;
+  bool _spinRunning = false;
+  bool _spinTargeted = false;
+  double _spinAngularVelocity = 0;
+  double _spinInitialVelocity = 0;
+  Duration _spinLastElapsed = Duration.zero;
+  AppController? _spinController;
+  WheelModel? _spinWheel;
+  SpinOutcome? _targetSpinOutcome;
+  double _targetSpinStart = 0;
+  double _targetSpinEnd = 0;
+  double _targetSpinDurationSec = 0;
+  double _targetSpinElapsedSec = 0;
 
   @override
   void initState() {
     super.initState();
-    _animationController = AnimationController(vsync: this)
-      ..addListener(() {
-        final animation = _rotationAnimation;
-        if (animation != null) {
-          setState(() => _rotation = animation.value);
-        }
-      });
+    _wheelTransformController = TransformationController()
+      ..addListener(_handleWheelTransformChanged);
+    _spinTicker = createTicker(_onSpinTick);
     _refreshGlowJitter();
     _refreshSliceLight();
   }
 
   @override
   void dispose() {
-    _animationController.dispose();
+    _edgePressTimer?.cancel();
+    _brakeHapticTimer?.cancel();
+    _spinTicker.dispose();
+    _wheelTransformController.removeListener(_handleWheelTransformChanged);
+    _wheelTransformController.dispose();
     super.dispose();
   }
 
@@ -82,6 +113,7 @@ class _WheelPageState extends State<WheelPage>
           _baseRotation = 0;
           _refreshGlowJitter(wheelId: wheel?.id, palette: wheel?.palette);
           _refreshSliceLight(wheelId: wheel?.id, palette: wheel?.palette);
+          _scheduleWheelViewportReset();
           _refreshFunHint(localeCode: localeCode, wheelId: wheel?.id);
         }
         if (_lastBrightness != Theme.of(context).brightness) {
@@ -126,211 +158,279 @@ class _WheelPageState extends State<WheelPage>
             : Colors.white;
 
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 46),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
+          padding: WheelUiTuning.pagePadding,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final maxDimension = max(
+                constraints.maxWidth,
+                constraints.maxHeight,
+              );
+              final wheelSize =
+                  constraints.maxWidth * WheelUiTuning.wheelSizeByWidthFactor;
+              if (_lastLayoutWheelSize == null ||
+                  (_lastLayoutWheelSize! - wheelSize).abs() > 0.5) {
+                _lastLayoutWheelSize = wheelSize;
+                _scheduleWheelViewportReset();
+              }
+              _wheelViewportSize = Size(
+                constraints.maxWidth,
+                constraints.maxHeight,
+              );
+              _wheelBaseSize = wheelSize;
+              return Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          wheel.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.w800),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _funHint ?? l10n.tapSliceForDetails,
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ],
-                    ),
-                  ),
-                  _PillTag(
-                    icon: Icons.tune_rounded,
-                    text: switch (wheel.probabilityMode) {
-                      ProbabilityMode.equal => l10n.modeEqual,
-                      ProbabilityMode.weighted => l10n.modeWeighted,
-                      ProbabilityMode.softAntiRepeat => l10n.modeSoftAntiRepeat,
-                    },
-                    accentColor: accentColor,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final size = min(
-                      constraints.maxWidth,
-                      constraints.maxHeight,
-                    );
-                    return Center(
-                      child: SizedBox(
-                        width: size,
-                        height: size,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Positioned.fill(
-                              child: _buildGlowSource(
-                                size: size,
-                                alignment: Alignment(
-                                  _glowAlignmentA.x + _glowJitterA.dx,
-                                  _glowAlignmentA.y + _glowJitterA.dy,
-                                ),
-                                color: glowColors[0],
-                                radiusFactor: _glowScaleA,
-                                isDark: isDark,
-                                tilt: -0.28,
-                              ),
+                  Positioned.fill(
+                    child: InteractiveViewer(
+                      transformationController: _wheelTransformController,
+                      minScale: 1.0,
+                      maxScale: WheelUiTuning.wheelMaxScale,
+                      panEnabled:
+                          !controller.spinning &&
+                          _wheelDetailScale >
+                              WheelUiTuning.panEnableScaleThreshold,
+                      scaleEnabled: !controller.spinning,
+                      boundaryMargin: EdgeInsets.all(
+                        maxDimension * WheelUiTuning.wheelBoundaryMarginFactor,
+                      ),
+                      clipBehavior: Clip.none,
+                      child: SizedBox.expand(
+                        child: Align(
+                          alignment: const Alignment(
+                            0,
+                            WheelUiTuning.wheelVerticalAlignmentY,
+                          ),
+                          child: Listener(
+                            behavior: HitTestBehavior.translucent,
+                            onPointerDown: (event) => _onWheelPointerDown(
+                              event: event,
+                              size: wheelSize,
                             ),
-                            Positioned.fill(
-                              child: _buildGlowSource(
-                                size: size,
-                                alignment: Alignment(
-                                  _glowAlignmentB.x + _glowJitterB.dx,
-                                  _glowAlignmentB.y + _glowJitterB.dy,
-                                ),
-                                color: glowColors[1],
-                                radiusFactor: _glowScaleB,
-                                isDark: isDark,
-                                tilt: 0.42,
-                              ),
+                            onPointerMove: (event) => _onWheelPointerMove(
+                              event: event,
+                              size: wheelSize,
                             ),
-                            WheelCanvas(
+                            onPointerUp: (event) => _onWheelPointerUp(
+                              event: event,
+                              size: wheelSize,
+                              controller: controller,
                               wheel: wheel,
-                              rotation: _rotation,
-                              winnerItemId: controller.winnerItemId,
-                              enabled: !controller.spinning,
-                              materialSheenCenter: _sliceSheenCenter,
-                              materialDepthCenter: _sliceDepthCenter,
-                              materialSheenIntensity: _sliceSheenIntensity,
-                              materialDepthIntensity: _sliceDepthIntensity,
-                              onTapSlice: (index) =>
-                                  _showItemDetails(context, wheel.items[index]),
                             ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 10),
-              FilledButton.icon(
-                onPressed: canSpin
-                    ? () => _spin(context, controller, wheel)
-                    : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: accentColor,
-                  foregroundColor: onAccentColor,
-                ),
-                icon: Icon(
-                  controller.spinning
-                      ? Icons.motion_photos_paused_rounded
-                      : Icons.play_arrow_rounded,
-                ),
-                label: Text(controller.spinning ? l10n.spinning : l10n.spin),
-              ),
-              const SizedBox(height: 8),
-              if (wheel.items.length < 2)
-                Text(
-                  l10n.atLeastTwoItems,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(22),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeOutCubic,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(22),
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: isDark
-                            ? [
-                                const Color(0xFF1A1F2A).withValues(alpha: 0.74),
-                                const Color(0xFF131722).withValues(alpha: 0.7),
-                              ]
-                            : [
-                                Colors.white.withValues(alpha: 0.76),
-                                const Color(0xFFF8FAFF).withValues(alpha: 0.68),
-                              ],
-                      ),
-                      border: Border.all(
-                        color: winner == null
-                            ? Theme.of(context).dividerTheme.color ??
-                                  Colors.transparent
-                            : accentColor.withValues(
-                                alpha: isDark ? 0.6 : 0.42,
-                              ),
-                        width: winner == null ? 1 : 1.5,
-                      ),
-                    ),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(22),
-                      onTap: winner == null
-                          ? null
-                          : () => _showItemDetails(context, winner),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            onPointerCancel: _onWheelPointerCancel,
+                            child: SizedBox(
+                              width: wheelSize,
+                              height: wheelSize,
+                              child: Stack(
+                                alignment: Alignment.center,
                                 children: [
-                                  Text(
-                                    l10n.result,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.labelLarge,
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    winner?.title ?? l10n.noResultYet,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .titleMedium
-                                        ?.copyWith(fontWeight: FontWeight.w700),
-                                  ),
-                                  if (winner?.subtitle != null)
-                                    Text(
-                                      winner!.subtitle!,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
+                                  Positioned.fill(
+                                    child: _buildGlowSource(
+                                      size: wheelSize,
+                                      alignment: Alignment(
+                                        _glowAlignmentA.x + _glowJitterA.dx,
+                                        _glowAlignmentA.y + _glowJitterA.dy,
+                                      ),
+                                      color: glowColors[0],
+                                      radiusFactor: _glowScaleA,
+                                      isDark: isDark,
+                                      tilt: -0.28,
                                     ),
+                                  ),
+                                  Positioned.fill(
+                                    child: _buildGlowSource(
+                                      size: wheelSize,
+                                      alignment: Alignment(
+                                        _glowAlignmentB.x + _glowJitterB.dx,
+                                        _glowAlignmentB.y + _glowJitterB.dy,
+                                      ),
+                                      color: glowColors[1],
+                                      radiusFactor: _glowScaleB,
+                                      isDark: isDark,
+                                      tilt: 0.42,
+                                    ),
+                                  ),
+                                  WheelCanvas(
+                                    wheel: wheel,
+                                    rotation: _rotation,
+                                    winnerItemId: controller.winnerItemId,
+                                    enabled: !controller.spinning,
+                                    detailScale: _wheelDetailScale,
+                                    materialSheenCenter: _sliceSheenCenter,
+                                    materialDepthCenter: _sliceDepthCenter,
+                                    materialSheenIntensity:
+                                        _sliceSheenIntensity,
+                                    materialDepthIntensity:
+                                        _sliceDepthIntensity,
+                                    onTapSlice: (index) => _showItemDetails(
+                                      context,
+                                      wheel.items[index],
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              color: winner == null ? null : accentColor,
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ),
-            ],
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  wheel.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _funHint ?? l10n.tapSliceForDetails,
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              ],
+                            ),
+                          ),
+                          _PillTag(
+                            icon: Icons.tune_rounded,
+                            text: switch (wheel.probabilityMode) {
+                              ProbabilityMode.equal => l10n.modeEqual,
+                              ProbabilityMode.weighted => l10n.modeWeighted,
+                              ProbabilityMode.softAntiRepeat =>
+                                l10n.modeSoftAntiRepeat,
+                            },
+                            accentColor: accentColor,
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      const SizedBox(height: WheelUiTuning.spinControlsTopGap),
+                      _LiquidGlassSpinButton(
+                        onPressed: canSpin
+                            ? () => _spin(context, controller, wheel)
+                            : null,
+                        accentColor: accentColor,
+                        onAccentColor: onAccentColor,
+                        icon: controller.spinning
+                            ? Icons.motion_photos_paused_rounded
+                            : Icons.play_arrow_rounded,
+                        label: controller.spinning ? l10n.spinning : l10n.spin,
+                      ),
+                      const SizedBox(height: 8),
+                      if (wheel.items.length < 2)
+                        Text(
+                          l10n.atLeastTwoItems,
+                          textAlign: TextAlign.center,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      const SizedBox(height: 8),
+                      LiquidGlassChrome(
+                        borderRadius: 22,
+                        accentColor: accentColor,
+                        isDark: isDark,
+                        shadowStrength: 1.0,
+                        highlightStrength: 1.0,
+                        child: GlassContainer(
+                          useOwnLayer: true,
+                          quality: GlassQuality.premium,
+                          shape: const LiquidRoundedSuperellipse(
+                            borderRadius: 22,
+                          ),
+                          settings: LiquidGlassSettings(
+                            thickness: isDark ? 22 : 25,
+                            blur: 0,
+                            glassColor: accentColor.withValues(
+                              alpha: isDark ? 0.07 : 0.08,
+                            ),
+                            lightAngle: isDark ? pi * 0.76 : pi * 0.72,
+                            lightIntensity: isDark ? 0.5 : 1.0,
+                            ambientStrength: isDark ? 0.01 : 0.03,
+                            refractiveIndex: 1.5,
+                            saturation: 1.3,
+                            chromaticAberration: 0,
+                          ),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOutCubic,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(22),
+                              onTap: winner == null
+                                  ? null
+                                  : () => _showItemDetails(context, winner),
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  14,
+                                  14,
+                                  14,
+                                  14,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            l10n.result,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.labelLarge,
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            winner?.title ?? l10n.noResultYet,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
+                                          if (winner?.subtitle != null)
+                                            Text(
+                                              winner!.subtitle!,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      color: winner == null
+                                          ? null
+                                          : accentColor,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            },
           ),
         );
       },
@@ -342,33 +442,11 @@ class _WheelPageState extends State<WheelPage>
     AppController controller,
     WheelModel wheel,
   ) async {
-    final localeCode = Localizations.localeOf(context).languageCode;
     final outcome = controller.beginSpin();
     if (outcome == null) {
       return;
     }
-    HapticFeedback.lightImpact();
-    var delta = outcome.targetDelta - _baseRotation;
-    while (delta < 4 * pi) {
-      delta += 2 * pi;
-    }
-    _animationController.duration = Duration(
-      milliseconds: wheel.spinDurationMs,
-    );
-    final curved = CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeOutCubic,
-    );
-    _rotationAnimation = Tween<double>(
-      begin: _baseRotation,
-      end: _baseRotation + delta,
-    ).animate(curved);
-    await _animationController.forward(from: 0);
-    _baseRotation = (_baseRotation + delta) % (2 * pi);
-    _rotation = _baseRotation;
-    _refreshFunHint(localeCode: localeCode, wheelId: wheel.id);
-    controller.finishSpin(outcome);
-    HapticFeedback.lightImpact();
+    _startTargetedSpin(controller: controller, wheel: wheel, outcome: outcome);
   }
 
   Future<void> _showItemDetails(BuildContext context, WheelItemModel item) {
@@ -520,6 +598,486 @@ class _WheelPageState extends State<WheelPage>
     _sliceLightSeed = seedBase ^ 0x6A09E667;
   }
 
+  void _onWheelPointerDown({
+    required PointerDownEvent event,
+    required double size,
+  }) {
+    if (_edgePointerId != null) {
+      return;
+    }
+    _edgePointerId = event.pointer;
+    _edgePointerOnRim = _isEdgeTouch(local: event.localPosition, size: size);
+    _edgePrevLocal = event.localPosition;
+    _edgeLastLocal = event.localPosition;
+    _edgePrevTime = event.timeStamp;
+    _edgeLastTime = event.timeStamp;
+
+    if (_spinRunning && _edgePointerOnRim) {
+      _edgePressTimer?.cancel();
+      _edgePressTimer = Timer(
+        Duration(milliseconds: WheelUiTuning.brakePressDelayMs),
+        () {
+          if (!_spinRunning || _edgePointerId == null) {
+            return;
+          }
+          _setEdgeBrakeActive(true);
+        },
+      );
+    }
+  }
+
+  void _onWheelPointerMove({
+    required PointerMoveEvent event,
+    required double size,
+  }) {
+    if (event.pointer != _edgePointerId) {
+      return;
+    }
+    _edgePrevLocal = _edgeLastLocal;
+    _edgePrevTime = _edgeLastTime;
+    _edgeLastLocal = event.localPosition;
+    _edgeLastTime = event.timeStamp;
+
+    if (_spinRunning) {
+      final stillOnRim = _isEdgeTouch(local: event.localPosition, size: size);
+      if (!stillOnRim) {
+        _setEdgeBrakeActive(false);
+      }
+    }
+  }
+
+  void _onWheelPointerUp({
+    required PointerUpEvent event,
+    required double size,
+    required AppController controller,
+    required WheelModel wheel,
+  }) {
+    if (event.pointer != _edgePointerId) {
+      return;
+    }
+    _edgePressTimer?.cancel();
+    _setEdgeBrakeActive(false);
+
+    final wasOnRim = _edgePointerOnRim;
+    final prevLocal = _edgePrevLocal;
+    final lastLocal = _edgeLastLocal;
+    final prevTime = _edgePrevTime;
+    final lastTime = _edgeLastTime;
+    _resetEdgePointerTracking();
+
+    if (!wasOnRim ||
+        controller.spinning ||
+        _wheelDetailScale > WheelUiTuning.panEnableScaleThreshold) {
+      return;
+    }
+    if (prevLocal == null ||
+        lastLocal == null ||
+        prevTime == null ||
+        lastTime == null) {
+      return;
+    }
+    final dtMicros = (lastTime - prevTime).inMicroseconds;
+    if (dtMicros <= 0) {
+      return;
+    }
+    final velocity = (lastLocal - prevLocal) / (dtMicros / 1e6);
+    final spinVelocity = _projectTangentialVelocity(
+      velocity: velocity,
+      local: lastLocal,
+      size: size,
+    );
+    if (spinVelocity.tangential.abs() <
+        WheelUiTuning.flickTangentialVelocityThreshold) {
+      return;
+    }
+    if (spinVelocity.tangential.abs() <
+        spinVelocity.radial.abs() * WheelUiTuning.flickTangentialDominance) {
+      return;
+    }
+    final angularVelocity = spinVelocity.tangential / (size / 2);
+    _startFreeSpin(
+      controller: controller,
+      wheel: wheel,
+      angularVelocity: angularVelocity,
+    );
+  }
+
+  void _onWheelPointerCancel(PointerCancelEvent event) {
+    if (event.pointer != _edgePointerId) {
+      return;
+    }
+    _edgePressTimer?.cancel();
+    _setEdgeBrakeActive(false);
+    _resetEdgePointerTracking();
+  }
+
+  bool _isEdgeTouch({required Offset local, required double size}) {
+    final center = Offset(size / 2, size / 2);
+    final vector = local - center;
+    final distance = vector.distance;
+    final radius = size / 2;
+    if (distance < radius * WheelUiTuning.edgeTouchInnerRadiusFactor ||
+        distance > radius * WheelUiTuning.edgeTouchOuterRadiusFactor) {
+      return false;
+    }
+    return vector.dx.abs() >=
+        vector.dy.abs() * WheelUiTuning.edgeTouchHorizontalDominance;
+  }
+
+  _TangentialProjection _projectTangentialVelocity({
+    required Offset velocity,
+    required Offset local,
+    required double size,
+  }) {
+    final center = Offset(size / 2, size / 2);
+    final radialVector = local - center;
+    final distance = max(radialVector.distance, 1.0);
+    final radialUnit = Offset(
+      radialVector.dx / distance,
+      radialVector.dy / distance,
+    );
+    final tangentClockwise = Offset(-radialUnit.dy, radialUnit.dx);
+    final tangential =
+        velocity.dx * tangentClockwise.dx + velocity.dy * tangentClockwise.dy;
+    final radial = velocity.dx * radialUnit.dx + velocity.dy * radialUnit.dy;
+    return _TangentialProjection(tangential: tangential, radial: radial);
+  }
+
+  void _startTargetedSpin({
+    required AppController controller,
+    required WheelModel wheel,
+    required SpinOutcome outcome,
+  }) {
+    if (_spinRunning) {
+      return;
+    }
+    var delta = outcome.targetDelta - _baseRotation;
+    while (delta < WheelUiTuning.spinCompleteMinTurns * 2 * pi) {
+      delta += 2 * pi;
+    }
+    _spinController = controller;
+    _spinWheel = wheel;
+    _spinRunning = true;
+    _spinTargeted = true;
+    _spinLastElapsed = Duration.zero;
+    _spinInitialVelocity = outcome.initialVelocity;
+    _spinAngularVelocity = outcome.initialVelocity;
+    _targetSpinOutcome = outcome;
+    _targetSpinStart = _baseRotation;
+    _targetSpinEnd = _baseRotation + delta;
+    _targetSpinDurationSec = max(
+      WheelUiTuning.targetSpinMinDurationSeconds,
+      wheel.spinDurationMs / 1000,
+    );
+    _targetSpinElapsedSec = 0;
+    _spinTicker.start();
+    HapticFeedback.lightImpact();
+  }
+
+  void _startFreeSpin({
+    required AppController controller,
+    required WheelModel wheel,
+    required double angularVelocity,
+  }) {
+    if (_spinRunning) {
+      return;
+    }
+    final outcome = controller.beginSpin();
+    if (outcome == null) {
+      return;
+    }
+    _spinController = controller;
+    _spinWheel = wheel;
+    _spinRunning = true;
+    _spinTargeted = false;
+    _spinLastElapsed = Duration.zero;
+    _spinAngularVelocity = angularVelocity.clamp(
+      -WheelUiTuning.freeSpinAngularVelocityClamp,
+      WheelUiTuning.freeSpinAngularVelocityClamp,
+    );
+    if (_spinAngularVelocity.abs() < WheelUiTuning.freeSpinAngularVelocityMin) {
+      _spinAngularVelocity =
+          _spinAngularVelocity.sign * WheelUiTuning.freeSpinAngularVelocityMin;
+    }
+    _spinInitialVelocity = _spinAngularVelocity.abs();
+    _targetSpinOutcome = null;
+    _spinTicker.start();
+    HapticFeedback.lightImpact();
+  }
+
+  void _onSpinTick(Duration elapsed) {
+    if (!_spinRunning || !mounted) {
+      return;
+    }
+    final controller = _spinController;
+    final wheel = _spinWheel;
+    if (controller == null || wheel == null) {
+      _stopSpinWithoutResult();
+      return;
+    }
+    if (_spinLastElapsed == Duration.zero) {
+      _spinLastElapsed = elapsed;
+      return;
+    }
+
+    final dt =
+        (elapsed - _spinLastElapsed).inMicroseconds /
+        Duration.microsecondsPerSecond;
+    _spinLastElapsed = elapsed;
+    if (dt <= 0) {
+      return;
+    }
+
+    if (_spinTargeted) {
+      final speedScale = _edgeBrakeActive
+          ? WheelUiTuning.targetSpinBrakeSpeedScale
+          : 1.0;
+      _targetSpinElapsedSec += dt * speedScale;
+      final t = (_targetSpinElapsedSec / _targetSpinDurationSec).clamp(
+        0.0,
+        1.0,
+      );
+      final eased = Curves.easeOutCubic.transform(t);
+      final nextRotation =
+          _targetSpinStart + (_targetSpinEnd - _targetSpinStart) * eased;
+      _spinAngularVelocity = (nextRotation - _rotation) / dt;
+      _rotation = nextRotation;
+      setState(() {});
+      if (t >= 1.0) {
+        _finalizeSpin(controller: controller, fixedOutcome: _targetSpinOutcome);
+      }
+      return;
+    }
+
+    final absVelocity = _spinAngularVelocity.abs();
+    if (absVelocity <= 0.01) {
+      _finalizeSpin(controller: controller);
+      return;
+    }
+    final friction = _edgeBrakeActive
+        ? WheelUiTuning.freeSpinBrakeFriction
+        : WheelUiTuning.freeSpinBaseFriction;
+    final nextAbsVelocity = max(0.0, absVelocity - friction * dt);
+    final averageVelocity =
+        _spinAngularVelocity.sign * ((absVelocity + nextAbsVelocity) * 0.5);
+    _rotation += averageVelocity * dt;
+    _spinAngularVelocity = _spinAngularVelocity.sign * nextAbsVelocity;
+    setState(() {});
+
+    if (nextAbsVelocity <= WheelUiTuning.freeSpinStopVelocity) {
+      _finalizeSpin(controller: controller);
+    }
+  }
+
+  void _setEdgeBrakeActive(bool active) {
+    if (_edgeBrakeActive == active) {
+      return;
+    }
+    _edgeBrakeActive = active;
+    _brakeHapticTimer?.cancel();
+    if (active) {
+      HapticFeedback.mediumImpact();
+      _brakeHapticTimer = Timer.periodic(
+        Duration(milliseconds: WheelUiTuning.brakeHapticIntervalMs),
+        (_) {
+          if (_edgeBrakeActive) {
+            HapticFeedback.selectionClick();
+          }
+        },
+      );
+    }
+  }
+
+  void _finalizeSpin({
+    required AppController controller,
+    SpinOutcome? fixedOutcome,
+  }) {
+    _spinTicker.stop();
+    _spinRunning = false;
+    _spinTargeted = false;
+    _setEdgeBrakeActive(false);
+    _spinLastElapsed = Duration.zero;
+    final normalized = _normalizeRotation(_rotation);
+    _rotation = normalized;
+    _baseRotation = normalized;
+
+    final currentWheel = controller.selectedWheel;
+    if (currentWheel == null || currentWheel.items.isEmpty) {
+      return;
+    }
+
+    final outcome =
+        fixedOutcome ?? _outcomeFromRotation(currentWheel, normalized);
+    controller.finishSpin(outcome);
+    if (mounted) {
+      _refreshFunHint(
+        localeCode: Localizations.localeOf(context).languageCode,
+        wheelId: currentWheel.id,
+      );
+    }
+    HapticFeedback.selectionClick();
+    setState(() {});
+  }
+
+  SpinOutcome _outcomeFromRotation(
+    WheelModel wheel,
+    double normalizedRotation,
+  ) {
+    final winnerIndex = _winnerIndexFromRotation(
+      itemCount: wheel.items.length,
+      rotation: normalizedRotation,
+    );
+    return SpinOutcome(
+      winnerIndex: winnerIndex,
+      winnerItemId: wheel.items[winnerIndex].id,
+      targetDelta: 0,
+      initialVelocity: _spinInitialVelocity,
+    );
+  }
+
+  double _normalizeRotation(double value) {
+    var result = value % (2 * pi);
+    if (result < 0) {
+      result += 2 * pi;
+    }
+    return result;
+  }
+
+  int _winnerIndexFromRotation({
+    required int itemCount,
+    required double rotation,
+  }) {
+    final wedge = (2 * pi) / itemCount;
+    var relative = -rotation;
+    while (relative < 0) {
+      relative += 2 * pi;
+    }
+    relative %= (2 * pi);
+    return (relative / wedge).floor().clamp(0, itemCount - 1);
+  }
+
+  void _stopSpinWithoutResult() {
+    _spinTicker.stop();
+    _spinRunning = false;
+    _spinTargeted = false;
+    _setEdgeBrakeActive(false);
+    _spinLastElapsed = Duration.zero;
+  }
+
+  void _resetEdgePointerTracking() {
+    _edgePointerId = null;
+    _edgePointerOnRim = false;
+    _edgePrevLocal = null;
+    _edgeLastLocal = null;
+    _edgePrevTime = null;
+    _edgeLastTime = null;
+  }
+
+  void _handleWheelTransformChanged() {
+    if (_syncingWheelTransform || !mounted) {
+      return;
+    }
+    final matrix = _wheelTransformController.value;
+    final nextScale = matrix.getMaxScaleOnAxis().clamp(
+      1.0,
+      WheelUiTuning.wheelMaxScale,
+    );
+    final clampedMatrix = _clampWheelTranslation(
+      matrix: matrix,
+      scale: nextScale,
+    );
+    if (clampedMatrix != null) {
+      _setWheelTransform(clampedMatrix);
+    }
+    final tx = matrix.entry(0, 3);
+    final ty = matrix.entry(1, 3);
+    final nearlyDefault = nextScale <= WheelUiTuning.panEnableScaleThreshold;
+    final translated = tx.abs() > 0.5 || ty.abs() > 0.5;
+    if (nearlyDefault && (translated || (nextScale - 1.0).abs() > 0.001)) {
+      _setWheelTransformIdentity();
+      if (_wheelDetailScale != 1.0) {
+        setState(() => _wheelDetailScale = 1.0);
+      }
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+    if ((nextScale - _wheelDetailScale).abs() < 0.015) {
+      return;
+    }
+    setState(() {
+      _wheelDetailScale = nextScale;
+    });
+  }
+
+  void _scheduleWheelViewportReset() {
+    if (_viewportResetScheduled) {
+      return;
+    }
+    _viewportResetScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _viewportResetScheduled = false;
+      if (!mounted) {
+        return;
+      }
+      _setWheelTransformIdentity();
+    });
+  }
+
+  Matrix4? _clampWheelTranslation({
+    required Matrix4 matrix,
+    required double scale,
+  }) {
+    if (scale <= WheelUiTuning.panEnableScaleThreshold ||
+        _wheelViewportSize.isEmpty ||
+        _wheelBaseSize <= 0) {
+      return null;
+    }
+    final viewport = _wheelViewportSize;
+    final radius = (_wheelBaseSize * scale) / 2;
+    final centerX = viewport.width / 2;
+    final centerY = viewport.height / 2;
+    final tx = matrix.entry(0, 3);
+    final ty = matrix.entry(1, 3);
+
+    const visibilityClamp = 0.32;
+    final minVisibleX = viewport.width * visibilityClamp;
+    final maxVisibleX = viewport.width * (1 - visibilityClamp);
+    final minVisibleY = viewport.height * visibilityClamp;
+    final maxVisibleY = viewport.height * (1 - visibilityClamp);
+
+    final minTx = maxVisibleX - (scale * centerX) - radius;
+    final maxTx = minVisibleX - (scale * centerX) + radius;
+    final minTy = maxVisibleY - (scale * centerY) - radius;
+    final maxTy = minVisibleY - (scale * centerY) + radius;
+
+    var clampedTx = tx;
+    var clampedTy = ty;
+    if (minTx <= maxTx) {
+      clampedTx = tx.clamp(minTx, maxTx).toDouble();
+    }
+    if (minTy <= maxTy) {
+      clampedTy = ty.clamp(minTy, maxTy).toDouble();
+    }
+    if ((clampedTx - tx).abs() < 0.01 && (clampedTy - ty).abs() < 0.01) {
+      return null;
+    }
+    return matrix.clone()
+      ..setEntry(0, 3, clampedTx)
+      ..setEntry(1, 3, clampedTy);
+  }
+
+  void _setWheelTransform(Matrix4 matrix) {
+    _syncingWheelTransform = true;
+    _wheelTransformController.value = matrix;
+    _syncingWheelTransform = false;
+  }
+
+  void _setWheelTransformIdentity() {
+    _setWheelTransform(Matrix4.identity());
+  }
+
   void _refreshFunHint({required String localeCode, int? wheelId}) {
     final hints = localeCode.startsWith('zh') ? _funHintsZh : _funHintsEn;
     if (hints.isEmpty) {
@@ -653,22 +1211,136 @@ class _PillTag extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: accentColor.withValues(alpha: isDark ? 0.18 : 0.14),
-        border: Border.all(
-          color: accentColor.withValues(alpha: isDark ? 0.45 : 0.28),
+    return LiquidGlassChrome(
+      borderRadius: 999,
+      accentColor: accentColor,
+      isDark: isDark,
+      shadowStrength: 0.52,
+      highlightStrength: 0.95,
+      child: GlassContainer(
+        useOwnLayer: true,
+        quality: GlassQuality.premium,
+        shape: const LiquidRoundedSuperellipse(borderRadius: 999),
+        settings: LiquidGlassSettings(
+          blur: 0,
+          thickness: isDark ? 10 : 9,
+          glassColor: accentColor.withValues(alpha: isDark ? 0.18 : 0.14),
+          lightIntensity: isDark ? 0.52 : 0.68,
+          ambientStrength: isDark ? 0.03 : 0.02,
+          refractiveIndex: 1.22,
+          saturation: 1.0,
+          chromaticAberration: 0,
         ),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 14, color: accentColor),
-          const SizedBox(width: 6),
-          Text(text, style: Theme.of(context).textTheme.labelMedium),
-        ],
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Icon(icon, size: 14, color: accentColor),
+              const SizedBox(width: 6),
+              Text(text, style: Theme.of(context).textTheme.labelMedium),
+            ],
+          ),
+        ),
       ),
     );
   }
+}
+
+class _LiquidGlassSpinButton extends StatelessWidget {
+  const _LiquidGlassSpinButton({
+    required this.onPressed,
+    required this.accentColor,
+    required this.onAccentColor,
+    required this.icon,
+    required this.label,
+  });
+
+  final VoidCallback? onPressed;
+  final Color accentColor;
+  final Color onAccentColor;
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final enabled = onPressed != null;
+    final glyphBase = isDark
+        ? Colors.white.withValues(alpha: 0.94)
+        : Colors.black.withValues(alpha: 0.86);
+    final glyphColor = Color.lerp(
+      glyphBase,
+      onAccentColor,
+      isDark ? 0.08 : 0.12,
+    )!;
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 180),
+      opacity: enabled ? 1 : 0.52,
+      child: LiquidStretch(
+        interactionScale: 1.01,
+        stretch: 0.5,
+        resistance: 0.08,
+        hitTestBehavior: HitTestBehavior.translucent,
+        child: SizedBox(
+          height: 58,
+          child: LiquidGlassChrome(
+            borderRadius: 30,
+            accentColor: accentColor,
+            isDark: isDark,
+            shadowStrength: 1.0,
+            highlightStrength: 1.0,
+            child: GlassButton.custom(
+              onTap: onPressed ?? () {},
+              enabled: enabled,
+              label: label,
+              width: double.infinity,
+              height: 58,
+              useOwnLayer: true,
+              quality: GlassQuality.premium,
+              shape: const LiquidRoundedSuperellipse(borderRadius: 30),
+              settings: LiquidGlassSettings(
+                thickness: isDark ? 22 : 25,
+                blur: 0,
+                glassColor: accentColor.withValues(alpha: isDark ? 0.07 : 0.08),
+                lightAngle: isDark ? pi * 0.76 : pi * 0.72,
+                lightIntensity: isDark ? 0.5 : 1.0,
+                ambientStrength: isDark ? 0.01 : 0.03,
+                refractiveIndex: 1.5,
+                saturation: isDark ? 1.3 : 1.3,
+                chromaticAberration: 0,
+              ),
+              interactionScale: 1.0,
+              stretch: 0,
+              resistance: 0.12,
+              glowColor: accentColor.withValues(alpha: isDark ? 0.05 : 0.07),
+              glowRadius: isDark ? 1.1 : 1.16,
+              style: GlassButtonStyle.filled,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, color: glyphColor),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: glyphColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TangentialProjection {
+  const _TangentialProjection({required this.tangential, required this.radial});
+
+  final double tangential;
+  final double radial;
 }
