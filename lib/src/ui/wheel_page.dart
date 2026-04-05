@@ -63,6 +63,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
   Timer? _brakeHapticTimer;
   Timer? _instabilityHapticTimer;
   double _instabilityHapticIntensity = 0;
+  bool _instabilityHapticContinuous = false;
   bool _edgeBrakeActive = false;
   bool _spinRunning = false;
   bool _spinTargeted = false;
@@ -934,7 +935,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
           _targetSpinStart + (_targetSpinEnd - _targetSpinStart) * eased;
       _spinAngularVelocity = (nextRotation - _rotation) / dt;
       _rotation = nextRotation;
-      _updateSpinInstability(dt: dt, allowVelocityNoise: false);
+      _updateSpinInstability(dt: dt);
       _syncSpinSpeedHud();
       _cacheCurrentWheelViewportIfPossible();
       setState(() {});
@@ -944,7 +945,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
       return;
     }
 
-    _updateSpinInstability(dt: dt, allowVelocityNoise: true);
+    _updateSpinInstability(dt: dt);
     final absVelocity = _spinAngularVelocity.abs();
     if (absVelocity <= 0.01) {
       _finalizeSpin(controller: controller);
@@ -1312,10 +1313,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _hintSeed = seedBase ^ 0x9E3779B9;
   }
 
-  void _updateSpinInstability({
-    required double dt,
-    required bool allowVelocityNoise,
-  }) {
+  void _updateSpinInstability({required double dt}) {
     final rpm = _currentSpinSpeedRpm;
     final overflow = rpm - WheelUiTuning.spinInstabilityStartRpm;
     if (overflow <= 0) {
@@ -1329,7 +1327,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     final intensity = (baseIntensity + extraIntensity)
         .clamp(0.0, 2.6)
         .toDouble();
-    _syncSpinInstabilityHaptics(intensity);
+    _syncSpinInstabilityHapticsByRpm(rpm);
 
     final freqHz =
         WheelUiTuning.spinInstabilityVisualHzBase +
@@ -1358,24 +1356,10 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
           translationAmp *
           0.9,
     );
-
-    if (allowVelocityNoise && _spinAngularVelocity != 0) {
-      final noiseStrength =
-          WheelUiTuning.spinInstabilityVelocityNoiseBase +
-          intensity * WheelUiTuning.spinInstabilityVelocityNoiseGain;
-      final signedNoise =
-          (_spinInstabilityRandom.nextDouble() * 2 - 1) *
-          noiseStrength *
-          dt *
-          55;
-      final sign = _spinAngularVelocity.sign;
-      final nextAbs = max(0.0, _spinAngularVelocity.abs() * (1 + signedNoise));
-      _spinAngularVelocity = sign * nextAbs;
-    }
   }
 
   void _decaySpinInstability(double dt) {
-    _syncSpinInstabilityHaptics(0);
+    _syncSpinInstabilityHapticsByRpm(0);
     if (_spinInstabilityRotationOffset.abs() < 0.0001 &&
         _spinInstabilityTranslation.distance < 0.01) {
       _spinInstabilityRotationOffset = 0;
@@ -1399,67 +1383,133 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _spinInstabilityTranslation = Offset.zero;
   }
 
-  void _syncSpinInstabilityHaptics(double intensity) {
+  void _syncSpinInstabilityHapticsByRpm(double rpm) {
+    final overflow = rpm - WheelUiTuning.spinInstabilityHapticStartRpm;
+    if (overflow <= 0) {
+      _stopSpinInstabilityHaptics();
+      return;
+    }
+    final ramp = WheelUiTuning.spinInstabilityHapticRampRpm;
+    final progress = (overflow / ramp).clamp(0.0, 1.0).toDouble();
+    final smooth = progress * progress * (3 - 2 * progress);
+    final extra = max(0.0, (overflow - ramp) / ramp) * 0.4;
+    final intensity = (smooth + extra).clamp(0.0, 1.5).toDouble();
     _instabilityHapticIntensity = intensity;
-    final active =
-        _spinRunning &&
-        !_edgeBrakeActive &&
-        intensity >= WheelUiTuning.spinInstabilityHapticStartIntensity;
+    final active = _spinRunning && !_edgeBrakeActive;
     if (!active) {
       _stopSpinInstabilityHaptics();
       return;
     }
     if (_instabilityHapticTimer != null) {
+      if (_instabilityHapticContinuous &&
+          !_shouldUseContinuousSpinInstabilityHaptic()) {
+        _cancelSpinInstabilityHapticTimer();
+        _scheduleNextSpinInstabilityHaptic();
+      } else if (!_instabilityHapticContinuous &&
+          _shouldUseContinuousSpinInstabilityHaptic()) {
+        _cancelSpinInstabilityHapticTimer();
+        _startContinuousSpinInstabilityHaptic();
+      }
       return;
     }
-    _scheduleNextSpinInstabilityHaptic();
+    if (_shouldUseContinuousSpinInstabilityHaptic()) {
+      _startContinuousSpinInstabilityHaptic();
+    } else {
+      _scheduleNextSpinInstabilityHaptic();
+    }
   }
 
   void _scheduleNextSpinInstabilityHaptic() {
-    if (!_spinRunning ||
-        _edgeBrakeActive ||
-        _instabilityHapticIntensity <
-            WheelUiTuning.spinInstabilityHapticStartIntensity) {
+    if (!_spinRunning || _edgeBrakeActive || _instabilityHapticIntensity <= 0) {
       _stopSpinInstabilityHaptics();
       return;
     }
-    const maxIntensityForTiming = 2.6;
+    if (_shouldUseContinuousSpinInstabilityHaptic()) {
+      _startContinuousSpinInstabilityHaptic();
+      return;
+    }
+    _instabilityHapticContinuous = false;
+    final intervalMs = _computeSpinInstabilityHapticIntervalMs();
+    _instabilityHapticTimer = Timer(Duration(milliseconds: intervalMs), () {
+      _instabilityHapticTimer = null;
+      if (!_spinRunning ||
+          _edgeBrakeActive ||
+          _instabilityHapticIntensity <= 0) {
+        _stopSpinInstabilityHaptics();
+        return;
+      }
+      _emitSpinInstabilityHapticPulse();
+      _scheduleNextSpinInstabilityHaptic();
+    });
+  }
+
+  void _startContinuousSpinInstabilityHaptic() {
+    if (_instabilityHapticContinuous && _instabilityHapticTimer != null) {
+      return;
+    }
+    _cancelSpinInstabilityHapticTimer();
+    _instabilityHapticContinuous = true;
+    _instabilityHapticTimer = Timer.periodic(
+      Duration(
+        milliseconds: WheelUiTuning.spinInstabilityHapticContinuousIntervalMs,
+      ),
+      (timer) {
+        if (!_spinRunning ||
+            _edgeBrakeActive ||
+            _instabilityHapticIntensity <= 0) {
+          _stopSpinInstabilityHaptics();
+          return;
+        }
+        if (!_shouldUseContinuousSpinInstabilityHaptic()) {
+          _cancelSpinInstabilityHapticTimer();
+          _scheduleNextSpinInstabilityHaptic();
+          return;
+        }
+        _emitSpinInstabilityHapticPulse();
+      },
+    );
+  }
+
+  int _computeSpinInstabilityHapticIntervalMs() {
+    const maxIntensityForTiming = 1.5;
     final normalized = (_instabilityHapticIntensity / maxIntensityForTiming)
         .clamp(0.0, 1.0)
         .toDouble();
     final eased = Curves.easeInCubic.transform(normalized);
     final maxInterval = WheelUiTuning.spinInstabilityHapticMaxIntervalMs;
     final minInterval = WheelUiTuning.spinInstabilityHapticMinIntervalMs;
-    final intervalMs = max(
+    return max(
       minInterval,
       (maxInterval - ((maxInterval - minInterval) * eased)).round(),
     );
-    _instabilityHapticTimer = Timer(Duration(milliseconds: intervalMs), () {
-      _instabilityHapticTimer = null;
-      if (!_spinRunning ||
-          _edgeBrakeActive ||
-          _instabilityHapticIntensity <
-              WheelUiTuning.spinInstabilityHapticStartIntensity) {
-        _stopSpinInstabilityHaptics();
-        return;
-      }
-      if (_instabilityHapticIntensity >= 1.35) {
-        HapticFeedback.heavyImpact();
-      } else if (_instabilityHapticIntensity >=
-          WheelUiTuning.spinInstabilityHapticStrongIntensity) {
-        HapticFeedback.mediumImpact();
-      } else if (_instabilityHapticIntensity >= 0.24) {
-        HapticFeedback.lightImpact();
-      } else {
-        HapticFeedback.selectionClick();
-      }
-      _scheduleNextSpinInstabilityHaptic();
-    });
+  }
+
+  bool _shouldUseContinuousSpinInstabilityHaptic() {
+    return _computeSpinInstabilityHapticIntervalMs() <=
+        WheelUiTuning.spinInstabilityHapticMinIntervalMs;
+  }
+
+  void _emitSpinInstabilityHapticPulse() {
+    if (_instabilityHapticIntensity >= 1.35) {
+      HapticFeedback.heavyImpact();
+    } else if (_instabilityHapticIntensity >=
+        WheelUiTuning.spinInstabilityHapticStrongIntensity) {
+      HapticFeedback.mediumImpact();
+    } else if (_instabilityHapticIntensity >= 0.24) {
+      HapticFeedback.lightImpact();
+    } else {
+      HapticFeedback.selectionClick();
+    }
+  }
+
+  void _cancelSpinInstabilityHapticTimer() {
+    _instabilityHapticTimer?.cancel();
+    _instabilityHapticTimer = null;
+    _instabilityHapticContinuous = false;
   }
 
   void _stopSpinInstabilityHaptics() {
-    _instabilityHapticTimer?.cancel();
-    _instabilityHapticTimer = null;
+    _cancelSpinInstabilityHapticTimer();
     _instabilityHapticIntensity = 0;
   }
 
