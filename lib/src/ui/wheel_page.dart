@@ -74,6 +74,8 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
   double _targetSpinEnd = 0;
   double _targetSpinDurationSec = 0;
   double _targetSpinElapsedSec = 0;
+  bool _showSpinSpeedHud = false;
+  double _lastSpinSpeedRpm = 0;
 
   @override
   void initState() {
@@ -316,6 +318,13 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
                                   _funHint ?? l10n.tapSliceForDetails,
                                   style: Theme.of(context).textTheme.bodySmall,
                                 ),
+                                if (_showSpinSpeedHud) ...[
+                                  const SizedBox(height: 8),
+                                  _SpinSpeedHud(
+                                    text: _spinSpeedHudLabel(context),
+                                    accentColor: accentColor,
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -684,8 +693,8 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _resetEdgePointerTracking();
 
     if ((!wasOnRim && !endedOnRim) ||
-        controller.spinning ||
-        _wheelDetailScale > WheelUiTuning.panEnableScaleThreshold) {
+        (!controller.spinning &&
+            _wheelDetailScale > WheelUiTuning.panEnableScaleThreshold)) {
       return;
     }
     if (downLocal == null || downTime == null) {
@@ -706,11 +715,71 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
       return;
     }
     final angularVelocity = sideSwipeVelocity / (size / 2);
+    if (_spinRunning) {
+      _applySpinFlickWhileRunning(angularVelocity: angularVelocity);
+      return;
+    }
+    if (controller.spinning ||
+        _wheelDetailScale > WheelUiTuning.panEnableScaleThreshold) {
+      return;
+    }
     _startFreeSpin(
       controller: controller,
       wheel: wheel,
       angularVelocity: angularVelocity,
     );
+  }
+
+  void _applySpinFlickWhileRunning({required double angularVelocity}) {
+    if (!_spinRunning) {
+      return;
+    }
+    final direction = _spinAngularVelocity == 0
+        ? angularVelocity.sign
+        : _spinAngularVelocity.sign;
+    final sameDirection =
+        _spinAngularVelocity == 0 || angularVelocity.sign == direction;
+    final impulse =
+        angularVelocity.abs() * WheelUiTuning.freeSpinFlickImpulseFactor;
+    if (_spinTargeted) {
+      final intensity =
+          (angularVelocity.abs() / WheelUiTuning.freeSpinAngularVelocityClamp)
+              .clamp(0.05, 1.0);
+      if (sameDirection) {
+        final speedup =
+            1 + intensity * WheelUiTuning.targetSpinFlickAccelFactor;
+        _targetSpinDurationSec = max(
+          WheelUiTuning.targetSpinMinDurationSeconds,
+          _targetSpinDurationSec / speedup,
+        );
+      } else {
+        final slowdown =
+            1 + intensity * WheelUiTuning.targetSpinFlickDecelFactor;
+        _targetSpinDurationSec = (_targetSpinDurationSec * slowdown).clamp(
+          WheelUiTuning.targetSpinMinDurationSeconds,
+          WheelUiTuning.targetSpinMaxDurationSeconds,
+        );
+      }
+      final tunedVelocity = sameDirection
+          ? (_spinAngularVelocity.abs() + impulse * 0.4)
+          : max(0.0, _spinAngularVelocity.abs() - impulse * 0.45);
+      _spinAngularVelocity = direction * tunedVelocity;
+    } else {
+      final absCurrent = _spinAngularVelocity.abs();
+      final tuned = sameDirection
+          ? min(
+              WheelUiTuning.freeSpinAngularVelocityClamp,
+              absCurrent + impulse,
+            )
+          : max(0.0, absCurrent - impulse);
+      _spinAngularVelocity = direction * tuned;
+    }
+    _showSpinSpeedHud = true;
+    _lastSpinSpeedRpm = _currentSpinSpeedRpm;
+    HapticFeedback.selectionClick();
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _onWheelPointerCancel(PointerCancelEvent event) {
@@ -754,6 +823,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     if (_spinRunning) {
       return;
     }
+    _hideSpinSpeedHudForNextSpin();
     var delta = outcome.targetDelta - _baseRotation;
     while (delta < WheelUiTuning.spinCompleteMinTurns * 2 * pi) {
       delta += 2 * pi;
@@ -785,6 +855,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     if (_spinRunning) {
       return;
     }
+    _hideSpinSpeedHudForNextSpin();
     final outcome = controller.beginSpin();
     if (outcome == null) {
       return;
@@ -845,6 +916,8 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
           _targetSpinStart + (_targetSpinEnd - _targetSpinStart) * eased;
       _spinAngularVelocity = (nextRotation - _rotation) / dt;
       _rotation = nextRotation;
+      _syncSpinSpeedHud();
+      _cacheCurrentWheelViewportIfPossible();
       setState(() {});
       if (t >= 1.0) {
         _finalizeSpin(controller: controller, fixedOutcome: _targetSpinOutcome);
@@ -865,6 +938,8 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
         _spinAngularVelocity.sign * ((absVelocity + nextAbsVelocity) * 0.5);
     _rotation += averageVelocity * dt;
     _spinAngularVelocity = _spinAngularVelocity.sign * nextAbsVelocity;
+    _syncSpinSpeedHud();
+    _cacheCurrentWheelViewportIfPossible();
     setState(() {});
 
     if (nextAbsVelocity <= WheelUiTuning.freeSpinStopVelocity) {
@@ -900,9 +975,12 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _spinTargeted = false;
     _setEdgeBrakeActive(false);
     _spinLastElapsed = Duration.zero;
+    _spinAngularVelocity = 0;
+    _syncSpinSpeedHud();
     final normalized = _normalizeRotation(_rotation);
     _rotation = normalized;
     _baseRotation = normalized;
+    _cacheCurrentWheelViewportIfPossible();
 
     final currentWheel = controller.selectedWheel;
     if (currentWheel == null || currentWheel.items.isEmpty) {
@@ -965,6 +1043,8 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _spinTargeted = false;
     _setEdgeBrakeActive(false);
     _spinLastElapsed = Duration.zero;
+    _spinAngularVelocity = 0;
+    _syncSpinSpeedHud();
   }
 
   void _resetEdgePointerTracking() {
@@ -1198,6 +1278,40 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _hintSeed = seedBase ^ 0x9E3779B9;
   }
 
+  double get _currentSpinSpeedRpm => _spinAngularVelocity.abs() * 60 / (2 * pi);
+
+  void _syncSpinSpeedHud() {
+    if (!_showSpinSpeedHud) {
+      return;
+    }
+    _lastSpinSpeedRpm = _currentSpinSpeedRpm;
+  }
+
+  void _hideSpinSpeedHudForNextSpin() {
+    if (!_showSpinSpeedHud && _lastSpinSpeedRpm == 0) {
+      return;
+    }
+    if (!mounted) {
+      _showSpinSpeedHud = false;
+      _lastSpinSpeedRpm = 0;
+      return;
+    }
+    setState(() {
+      _showSpinSpeedHud = false;
+      _lastSpinSpeedRpm = 0;
+    });
+  }
+
+  String _spinSpeedHudLabel(BuildContext context) {
+    final localeCode = Localizations.localeOf(context).languageCode;
+    final speed = _spinRunning ? _currentSpinSpeedRpm : _lastSpinSpeedRpm;
+    final rpmText = speed.toStringAsFixed(1);
+    if (localeCode.startsWith('zh')) {
+      return '实时转速 $rpmText RPM';
+    }
+    return 'Live Speed $rpmText RPM';
+  }
+
   Widget _buildGlowSource({
     required double size,
     required Alignment alignment,
@@ -1348,6 +1462,42 @@ class _PillTag extends StatelessWidget {
               Text(text, style: Theme.of(context).textTheme.labelMedium),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SpinSpeedHud extends StatelessWidget {
+  const _SpinSpeedHud({required this.text, required this.accentColor});
+
+  final String text;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: isDark
+            ? Colors.black.withValues(alpha: 0.24)
+            : Colors.white.withValues(alpha: 0.5),
+        border: Border.all(
+          color: accentColor.withValues(alpha: isDark ? 0.32 : 0.28),
+        ),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.w700,
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.92)
+              : Colors.black.withValues(alpha: 0.82),
         ),
       ),
     );

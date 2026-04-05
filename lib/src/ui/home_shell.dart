@@ -28,13 +28,11 @@ class _HomeShellState extends State<HomeShell> {
   late final Offset _orbJitterTopRight;
   late final Offset _orbJitterBottomLeft;
   int _currentPage = 0;
-  double _pagePosition = 0;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: 0);
-    _pageController.addListener(_handlePageScroll);
     final rng = Random(DateTime.now().microsecondsSinceEpoch);
     _orbJitterTopRight = Offset(
       (rng.nextDouble() - 0.5) * 56,
@@ -48,22 +46,8 @@ class _HomeShellState extends State<HomeShell> {
 
   @override
   void dispose() {
-    _pageController.removeListener(_handlePageScroll);
     _pageController.dispose();
     super.dispose();
-  }
-
-  void _handlePageScroll() {
-    if (!_pageController.hasClients) {
-      return;
-    }
-    final next = _pageController.page ?? _currentPage.toDouble();
-    if ((next - _pagePosition).abs() < 0.0005) {
-      return;
-    }
-    setState(() {
-      _pagePosition = next;
-    });
   }
 
   void _goToManagePage() {
@@ -89,6 +73,8 @@ class _HomeShellState extends State<HomeShell> {
         final l10n = AppLocalizations.of(context)!;
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final selectedWheel = controller.selectedWheel;
+        final hasBackgroundImage =
+            selectedWheel?.backgroundImagePath?.isNotEmpty == true;
         final palette = selectedWheel?.palette ?? 'random';
         final wheelViewport =
             controller.wheelViewportStateForWheel(controller.selectedWheelId) ??
@@ -152,6 +138,28 @@ class _HomeShellState extends State<HomeShell> {
             ),
             child: Stack(
               children: [
+                if (!hasBackgroundImage)
+                  Positioned.fill(
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: controller.wheelViewportRevision,
+                      builder: (context, _, _) {
+                        final syncEnabled =
+                            _currentPage == 0 &&
+                            controller.selectedDisplayMode ==
+                                DrawDisplayMode.wheel;
+                        final liveViewport = controller
+                            .wheelViewportStateForWheel(
+                              controller.selectedWheelId,
+                            );
+                        return _BackgroundOrbLayer(
+                          topRightJitter: _orbJitterTopRight,
+                          bottomLeftJitter: _orbJitterBottomLeft,
+                          orbColors: orbColors,
+                          viewportState: syncEnabled ? liveViewport : null,
+                        );
+                      },
+                    ),
+                  ),
                 if (selectedWheel?.backgroundImagePath != null)
                   Positioned.fill(
                     child: IgnorePointer(
@@ -173,27 +181,6 @@ class _HomeShellState extends State<HomeShell> {
                       ),
                     ),
                   ),
-                Positioned.fill(
-                  child: ValueListenableBuilder<int>(
-                    valueListenable: controller.wheelViewportRevision,
-                    builder: (context, _, _) {
-                      final syncEnabled =
-                          _currentPage == 0 &&
-                          controller.selectedDisplayMode ==
-                              DrawDisplayMode.wheel;
-                      final liveViewport = controller
-                          .wheelViewportStateForWheel(
-                            controller.selectedWheelId,
-                          );
-                      return _BackgroundOrbLayer(
-                        topRightJitter: _orbJitterTopRight,
-                        bottomLeftJitter: _orbJitterBottomLeft,
-                        orbColors: orbColors,
-                        viewportState: syncEnabled ? liveViewport : null,
-                      );
-                    },
-                  ),
-                ),
                 SafeArea(
                   child: Stack(
                     children: [
@@ -207,17 +194,27 @@ class _HomeShellState extends State<HomeShell> {
                                     controller.selectedWheelId,
                                   ) ??
                                   wheelViewport;
-                              return _WheelCarryoverLayer(
-                                wheel:
-                                    controller.selectedDisplayMode ==
-                                        DrawDisplayMode.wheel
-                                    ? controller.selectedWheel
-                                    : null,
-                                winnerItemId: controller.winnerItemId,
-                                viewportState: liveViewport,
-                                palette: palette,
-                                isDark: isDark,
-                                pagePosition: _pagePosition,
+                              return AnimatedBuilder(
+                                animation: _pageController,
+                                builder: (context, _) {
+                                  final pagePosition =
+                                      _pageController.hasClients
+                                      ? (_pageController.page ??
+                                            _currentPage.toDouble())
+                                      : _currentPage.toDouble();
+                                  return _WheelCarryoverLayer(
+                                    wheel:
+                                        controller.selectedDisplayMode ==
+                                            DrawDisplayMode.wheel
+                                        ? controller.selectedWheel
+                                        : null,
+                                    winnerItemId: controller.winnerItemId,
+                                    viewportState: liveViewport,
+                                    palette: palette,
+                                    isDark: isDark,
+                                    pagePosition: pagePosition,
+                                  );
+                                },
                               );
                             },
                           ),
@@ -230,7 +227,6 @@ class _HomeShellState extends State<HomeShell> {
                             : const BouncingScrollPhysics(),
                         onPageChanged: (value) => setState(() {
                           _currentPage = value;
-                          _pagePosition = value.toDouble();
                         }),
                         children: [
                           DrawModePage(onOpenManage: _goToManagePage),
@@ -699,7 +695,7 @@ class _WheelCarryoverLayer extends StatelessWidget {
     if (currentWheel == null || viewport == null) {
       return const SizedBox.shrink();
     }
-    final carryProgress = pagePosition.clamp(0.0, 1.0);
+    final carryProgress = pagePosition.clamp(-0.35, 1.0);
     final scale = viewport.scale.clamp(1.0, WheelUiTuning.wheelMaxScale);
     final glowColors = _paletteWheelGlowColors(palette, isDark);
     return LayoutBuilder(

@@ -78,6 +78,7 @@ class WheelUiTuning {
   static const double flickTangentialVelocityThreshold = 240;
   static const double freeSpinAngularVelocityClamp = 18.0;
   static const double freeSpinAngularVelocityMin = 3.6;
+  static const double freeSpinFlickImpulseFactor = 0.78;
   static const double freeSpinBaseFriction = 4.0;
   static const double freeSpinBrakeFriction = 15.8;
   static const double freeSpinStopVelocity = 0.16;
@@ -85,4 +86,7 @@ class WheelUiTuning {
   static const int brakeHapticIntervalMs = 120;
   static const double targetSpinBrakeSpeedScale = 2.15;
   static const double targetSpinMinDurationSeconds = 0.9;
+  static const double targetSpinMaxDurationSeconds = 12.0;
+  static const double targetSpinFlickAccelFactor = 0.68;
+  static const double targetSpinFlickDecelFactor = 0.9;
 }
