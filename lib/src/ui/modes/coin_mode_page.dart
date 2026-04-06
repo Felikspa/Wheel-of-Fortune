@@ -107,6 +107,7 @@ class _CoinModePageState extends State<CoinModePage>
                       icon: Icons.tune_rounded,
                       text: l10n.modeEqual,
                       accentColor: style.accentColor,
+                      colorlessGlass: style.colorlessGlass,
                     ),
                   ],
                 ),
@@ -114,6 +115,7 @@ class _CoinModePageState extends State<CoinModePage>
                 DrawModeFrostedPanel(
                   accentColor: style.accentColor,
                   isDark: isDark,
+                  colorlessGlass: style.colorlessGlass,
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final compact = constraints.maxWidth < 360;
@@ -244,6 +246,7 @@ class _CoinModePageState extends State<CoinModePage>
                       : () => _toss(controller, resolved),
                   accentColor: style.accentColor,
                   onAccentColor: style.onAccentColor,
+                  colorlessGlass: style.colorlessGlass,
                   icon: controller.busy
                       ? Icons.motion_photos_paused_rounded
                       : Icons.casino_rounded,
@@ -255,6 +258,7 @@ class _CoinModePageState extends State<CoinModePage>
                   value: winner?.title ?? l10n.noResultYet,
                   accentColor: style.accentColor,
                   isDark: isDark,
+                  colorlessGlass: style.colorlessGlass,
                 ),
               ],
             ),

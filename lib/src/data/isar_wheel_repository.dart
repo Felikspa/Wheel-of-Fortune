@@ -29,16 +29,19 @@ class IsarWheelRepository implements WheelRepository {
   @override
   Future<List<WheelModel>> loadWheels() async {
     final wheels = await _db.wheelRecords.where().sortByCreatedAt().findAll();
-    final wheelModels = <WheelModel>[];
-    for (final wheel in wheels) {
-      final itemRecords = await _db.wheelItemRecords
-          .filter()
-          .wheelIdEqualTo(wheel.id)
-          .sortByOrder()
-          .findAll();
-      wheelModels.add(_toWheelModel(wheel, itemRecords));
+    final itemRecords = await _db.wheelItemRecords.where().findAll();
+    final itemsByWheelId = <int, List<WheelItemRecord>>{};
+    for (final item in itemRecords) {
+      final bucket = itemsByWheelId.putIfAbsent(item.wheelId, () => []);
+      bucket.add(item);
     }
-    return wheelModels;
+    for (final bucket in itemsByWheelId.values) {
+      bucket.sort((a, b) => a.order.compareTo(b.order));
+    }
+    return [
+      for (final wheel in wheels)
+        _toWheelModel(wheel, itemsByWheelId[wheel.id] ?? const []),
+    ];
   }
 
   @override
@@ -126,11 +129,12 @@ class IsarWheelRepository implements WheelRepository {
         keptIds.add(id);
       }
 
-      final deleteIds = existing
-          .where((item) => !keptIds.contains(item.id))
-          .map((item) => item.id);
+      final deleteIds = [
+        for (final item in existing)
+          if (!keptIds.contains(item.id)) item.id,
+      ];
       if (deleteIds.isNotEmpty) {
-        await _db.wheelItemRecords.deleteAll(deleteIds.toList());
+        await _db.wheelItemRecords.deleteAll(deleteIds);
       }
     });
   }

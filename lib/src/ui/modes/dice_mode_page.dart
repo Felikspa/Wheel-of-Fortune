@@ -63,6 +63,13 @@ class _DiceModePageState extends State<DiceModePage>
         final sides = controller.selectedDiceSidesForSelectedWheel;
         final validation = controller.validateSelectedDiceMapping();
         final mapping = validation.mapping;
+        final idUsageCounts = <int, int>{};
+        for (final mappedId in mapping) {
+          if (mappedId == null) {
+            continue;
+          }
+          idUsageCounts[mappedId] = (idUsageCounts[mappedId] ?? 0) + 1;
+        }
         final itemById = {for (final item in wheel.items) item.id: item};
         final shownFace = _displayFaceIndex(sides);
         final shownItemId = shownFace >= 0 && shownFace < mapping.length
@@ -109,6 +116,7 @@ class _DiceModePageState extends State<DiceModePage>
                           l10n.modeSoftAntiRepeat,
                       },
                       accentColor: style.accentColor,
+                      colorlessGlass: style.colorlessGlass,
                     ),
                   ],
                 ),
@@ -116,6 +124,7 @@ class _DiceModePageState extends State<DiceModePage>
                 DrawModeFrostedPanel(
                   accentColor: style.accentColor,
                   isDark: isDark,
+                  colorlessGlass: style.colorlessGlass,
                   child: DropdownButtonFormField<int>(
                     key: ValueKey<String>('dice-sides-$sides'),
                     initialValue: sides,
@@ -155,6 +164,7 @@ class _DiceModePageState extends State<DiceModePage>
                   child: DrawModeFrostedPanel(
                     accentColor: style.accentColor,
                     isDark: isDark,
+                    colorlessGlass: style.colorlessGlass,
                     padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
                     child: ListView.separated(
                       itemCount: sides,
@@ -164,10 +174,6 @@ class _DiceModePageState extends State<DiceModePage>
                         final isMissing =
                             selectedItemId != null &&
                             !itemById.containsKey(selectedItemId);
-                        final usedIds = <int>{
-                          for (var i = 0; i < mapping.length; i++)
-                            if (i != index && mapping[i] != null) mapping[i]!,
-                        };
 
                         final items = <DropdownMenuItem<int?>>[
                           DropdownMenuItem<int?>(
@@ -190,9 +196,9 @@ class _DiceModePageState extends State<DiceModePage>
                           for (final item in wheel.items)
                             DropdownMenuItem<int?>(
                               value: item.id,
-                              enabled:
-                                  !usedIds.contains(item.id) ||
-                                  item.id == selectedItemId,
+                              enabled: item.id == selectedItemId
+                                  ? true
+                                  : (idUsageCounts[item.id] ?? 0) == 0,
                               child: Text(
                                 item.title,
                                 maxLines: 1,
@@ -322,6 +328,7 @@ class _DiceModePageState extends State<DiceModePage>
                       : () => _roll(controller),
                   accentColor: style.accentColor,
                   onAccentColor: style.onAccentColor,
+                  colorlessGlass: style.colorlessGlass,
                   icon: controller.busy
                       ? Icons.motion_photos_paused_rounded
                       : Icons.casino_rounded,
@@ -333,6 +340,7 @@ class _DiceModePageState extends State<DiceModePage>
                   value: winner?.title ?? l10n.noResultYet,
                   accentColor: style.accentColor,
                   isDark: isDark,
+                  colorlessGlass: style.colorlessGlass,
                 ),
               ],
             ),

@@ -8,6 +8,7 @@ import 'package:wheel_of_fortune/src/services/i18n_service.dart';
 import 'package:wheel_of_fortune/src/state/app_controller.dart';
 import 'package:wheel_of_fortune/src/ui/app_theme.dart';
 import 'package:wheel_of_fortune/src/ui/home_shell.dart';
+import 'package:wheel_of_fortune/src/ui/modes/mode_visuals.dart';
 
 void main() {
   Future<void> pumpApp(WidgetTester tester) async {
@@ -44,7 +45,9 @@ void main() {
   }
 
   Future<void> openDrawer(WidgetTester tester) async {
-    final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold).first);
+    final scaffoldState = tester.state<ScaffoldState>(
+      find.byType(Scaffold).first,
+    );
     scaffoldState.openDrawer();
     await tester.pumpAndSettle();
   }
@@ -77,21 +80,30 @@ void main() {
     expect(find.text('Wheels'), findsNothing);
   });
 
-  testWidgets('drawer mode dropdown switches to coin mode and closes drawer', (tester) async {
+  testWidgets('drawer mode dropdown switches to coin mode and closes drawer', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
     await switchMode(tester, 'Mode: Coin');
     expect(find.text('Toss Coin'), findsOneWidget);
-    final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold).first);
+    final scaffoldState = tester.state<ScaffoldState>(
+      find.byType(Scaffold).first,
+    );
     expect(scaffoldState.isDrawerOpen, isFalse);
   });
 
-  testWidgets('dice mode roll button is disabled when mapping is incomplete', (tester) async {
+  testWidgets('dice mode roll button is disabled when mapping is incomplete', (
+    tester,
+  ) async {
     await pumpApp(tester);
 
     await switchMode(tester, 'Mode: Dice');
-    final button = tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Roll Dice'),
+    final button = tester.widget<DrawModeGlassActionButton>(
+      find.ancestor(
+        of: find.text('Roll Dice'),
+        matching: find.byType(DrawModeGlassActionButton),
+      ),
     );
     expect(button.onPressed, isNull);
   });
@@ -105,7 +117,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No result yet'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Shuffle'));
+    await tester.tap(find.text('Shuffle'));
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.style_rounded).first);

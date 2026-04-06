@@ -11,9 +11,9 @@ import '../../l10n/app_localizations.dart';
 import '../domain/models.dart';
 import '../services/spin_engine.dart';
 import '../state/app_controller.dart';
+import 'palette_tokens.dart';
 import 'widgets/liquid_glass_chrome.dart';
 import 'wheel_ui_tuning.dart';
-import 'widgets/wheel_canvas.dart';
 
 class WheelPage extends StatefulWidget {
   const WheelPage({super.key, required this.onOpenManage});
@@ -170,8 +170,8 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
         }
         final canSpin = !controller.spinning && wheel.items.length >= 2;
         final winner = controller.winnerItem;
-        final accentColor = _paletteAccentColor(wheel.palette, isDark);
-        final glowColors = _paletteGlowColors(wheel.palette, isDark);
+        final colorlessGlass = wheel.palette == 'transparent';
+        final accentColor = paletteAccentColor(wheel.palette, isDark);
         final onAccentColor = accentColor.computeLuminance() > 0.45
             ? Colors.black
             : Colors.white;
@@ -244,59 +244,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
                             child: SizedBox(
                               width: wheelSize,
                               height: wheelSize,
-                              child: Opacity(
-                                opacity: 0,
-                                child: RepaintBoundary(
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      Positioned.fill(
-                                        child: _buildGlowSource(
-                                          size: wheelSize,
-                                          alignment: Alignment(
-                                            _glowAlignmentA.x + _glowJitterA.dx,
-                                            _glowAlignmentA.y + _glowJitterA.dy,
-                                          ),
-                                          color: glowColors[0],
-                                          radiusFactor: _glowScaleA,
-                                          isDark: isDark,
-                                          tilt: -0.28,
-                                        ),
-                                      ),
-                                      Positioned.fill(
-                                        child: _buildGlowSource(
-                                          size: wheelSize,
-                                          alignment: Alignment(
-                                            _glowAlignmentB.x + _glowJitterB.dx,
-                                            _glowAlignmentB.y + _glowJitterB.dy,
-                                          ),
-                                          color: glowColors[1],
-                                          radiusFactor: _glowScaleB,
-                                          isDark: isDark,
-                                          tilt: 0.42,
-                                        ),
-                                      ),
-                                      WheelCanvas(
-                                        wheel: wheel,
-                                        rotation: _rotation,
-                                        winnerItemId: controller.winnerItemId,
-                                        enabled: !controller.spinning,
-                                        detailScale: _wheelDetailScale,
-                                        materialSheenCenter: _sliceSheenCenter,
-                                        materialDepthCenter: _sliceDepthCenter,
-                                        materialSheenIntensity:
-                                            _sliceSheenIntensity,
-                                        materialDepthIntensity:
-                                            _sliceDepthIntensity,
-                                        onTapSlice: (index) => _showItemDetails(
-                                          context,
-                                          wheel.items[index],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                              child: const SizedBox.expand(),
                             ),
                           ),
                         ),
@@ -355,6 +303,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
                                 l10n.modeSoftAntiRepeat,
                             },
                             accentColor: accentColor,
+                            colorlessGlass: colorlessGlass,
                           ),
                         ],
                       ),
@@ -365,6 +314,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
                             ? () => _spin(context, controller, wheel)
                             : null,
                         accentColor: accentColor,
+                        colorlessGlass: colorlessGlass,
                         onAccentColor: onAccentColor,
                         icon: controller.spinning
                             ? Icons.motion_photos_paused_rounded
@@ -383,6 +333,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
                         borderRadius: 22,
                         accentColor: accentColor,
                         isDark: isDark,
+                        colorless: colorlessGlass,
                         shadowStrength: 1.0,
                         highlightStrength: 1.0,
                         child: GlassContainer(
@@ -394,12 +345,18 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
                           settings: LiquidGlassSettings(
                             thickness: isDark ? 22 : 25,
                             blur: 0,
-                            glassColor: accentColor.withValues(
-                              alpha: isDark ? 0.04 : 0.045,
-                            ),
+                            glassColor: colorlessGlass
+                                ? Colors.transparent
+                                : accentColor.withValues(
+                                    alpha: isDark ? 0.04 : 0.045,
+                                  ),
                             lightAngle: isDark ? pi * 0.76 : pi * 0.72,
-                            lightIntensity: isDark ? 0.0 : 1.0,
-                            ambientStrength: isDark ? 0.0 : 0.03,
+                            lightIntensity: colorlessGlass
+                                ? 0
+                                : (isDark ? 0.0 : 1.0),
+                            ambientStrength: colorlessGlass
+                                ? 0
+                                : (isDark ? 0.0 : 0.03),
                             refractiveIndex: 1.5,
                             saturation: 0.92,
                             chromaticAberration: 0,
@@ -535,51 +492,6 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
         ),
       ),
     );
-  }
-
-  Color _paletteAccentColor(String palette, bool isDark) {
-    return switch (palette) {
-      'random' => isDark ? const Color(0xFFBFA3FF) : const Color(0xFF7367F0),
-      'ocean' => isDark ? const Color(0xFF71C5FF) : const Color(0xFF2188F6),
-      'sunset' => isDark ? const Color(0xFFFFA36E) : const Color(0xFFEE6C2B),
-      'mint' => isDark ? const Color(0xFF7DE4CA) : const Color(0xFF16B38A),
-      'mono' => isDark ? const Color(0xFF9EA7B4) : const Color(0xFF6F7783),
-      'pink' => isDark ? const Color(0xFFFFA3C8) : const Color(0xFFFF8AB6),
-      _ => isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
-    };
-  }
-
-  List<Color> _paletteGlowColors(String palette, bool isDark) {
-    return switch (palette) {
-      'random' =>
-        isDark
-            ? [const Color(0xFF9E8BFF), const Color(0xFF54AFFF)]
-            : [const Color(0xFF7A6CF4), const Color(0xFF3E8EF9)],
-      'ocean' =>
-        isDark
-            ? [const Color(0xFF53B8FF), const Color(0xFF35D7C8)]
-            : [const Color(0xFF2A96FF), const Color(0xFF2CCFBA)],
-      'sunset' =>
-        isDark
-            ? [const Color(0xFFFF9B65), const Color(0xFFFF5A86)]
-            : [const Color(0xFFF57A38), const Color(0xFFEC4E6F)],
-      'mint' =>
-        isDark
-            ? [const Color(0xFF59DFC1), const Color(0xFF5CCBF7)]
-            : [const Color(0xFF26C8A0), const Color(0xFF3AAAE8)],
-      'mono' =>
-        isDark
-            ? [const Color(0xFF8D97A7), const Color(0xFF6B7585)]
-            : [const Color(0xFF858E9A), const Color(0xFFA8B0BC)],
-      'pink' =>
-        isDark
-            ? [const Color(0xFFFF79BA), const Color(0xFFAD8DFF)]
-            : [const Color(0xFFFF63AE), const Color(0xFFC29CFF)],
-      _ =>
-        isDark
-            ? [const Color(0xFF9AB4FF), const Color(0xFF6FA0FF)]
-            : [const Color(0xFF4E6BDB), const Color(0xFF3F8AF1)],
-    };
   }
 
   void _refreshGlowJitter({int? wheelId, String? palette}) {
@@ -1543,69 +1455,6 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     return '$rpmText RPM';
   }
 
-  Widget _buildGlowSource({
-    required double size,
-    required Alignment alignment,
-    required Color color,
-    required double radiusFactor,
-    required bool isDark,
-    required double tilt,
-  }) {
-    return IgnorePointer(
-      child: Align(
-        alignment: alignment,
-        child: Transform(
-          alignment: Alignment.center,
-          transform: Matrix4.identity()
-            ..rotateZ(tilt)
-            ..multiply(Matrix4.diagonal3Values(1.0, isDark ? 0.88 : 0.92, 1.0)),
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: size * radiusFactor * 1.16,
-                height: size * radiusFactor * 1.16,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      color.withValues(alpha: isDark ? 0.34 : 0.18),
-                      color.withValues(alpha: isDark ? 0.12 : 0.06),
-                      color.withValues(alpha: 0.0),
-                    ],
-                    stops: const [0.0, 0.45, 1.0],
-                  ),
-                ),
-              ),
-              Container(
-                width: size * radiusFactor * 0.78,
-                height: size * radiusFactor * 0.78,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      color.withValues(alpha: isDark ? 0.56 : 0.3),
-                      color.withValues(alpha: isDark ? 0.24 : 0.12),
-                      color.withValues(alpha: 0.0),
-                    ],
-                    stops: const [0.0, 0.32, 1.0],
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withValues(alpha: isDark ? 0.46 : 0.2),
-                      blurRadius: size * 0.11,
-                      spreadRadius: size * 0.008,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   static const List<String> _funHintsZh = [
     '今天想吃点儿什么？',
     '需要做哪些决定？',
@@ -1655,11 +1504,13 @@ class _PillTag extends StatelessWidget {
     required this.icon,
     required this.text,
     required this.accentColor,
+    this.colorlessGlass = false,
   });
 
   final IconData icon;
   final String text;
   final Color accentColor;
+  final bool colorlessGlass;
 
   @override
   Widget build(BuildContext context) {
@@ -1668,6 +1519,7 @@ class _PillTag extends StatelessWidget {
       borderRadius: 999,
       accentColor: accentColor,
       isDark: isDark,
+      colorless: colorlessGlass,
       shadowStrength: 0.52,
       highlightStrength: 0.95,
       child: GlassContainer(
@@ -1677,9 +1529,11 @@ class _PillTag extends StatelessWidget {
         settings: LiquidGlassSettings(
           blur: 0,
           thickness: isDark ? 10 : 9,
-          glassColor: accentColor.withValues(alpha: isDark ? 0.18 : 0.14),
-          lightIntensity: isDark ? 0.52 : 0.68,
-          ambientStrength: isDark ? 0.03 : 0.02,
+          glassColor: colorlessGlass
+              ? Colors.transparent
+              : accentColor.withValues(alpha: isDark ? 0.18 : 0.14),
+          lightIntensity: colorlessGlass ? 0 : (isDark ? 0.52 : 0.68),
+          ambientStrength: colorlessGlass ? 0 : (isDark ? 0.03 : 0.02),
           refractiveIndex: 1.22,
           saturation: 1.0,
           chromaticAberration: 0,
@@ -1736,6 +1590,7 @@ class _LiquidGlassSpinButton extends StatelessWidget {
   const _LiquidGlassSpinButton({
     required this.onPressed,
     required this.accentColor,
+    required this.colorlessGlass,
     required this.onAccentColor,
     required this.icon,
     required this.label,
@@ -1743,6 +1598,7 @@ class _LiquidGlassSpinButton extends StatelessWidget {
 
   final VoidCallback? onPressed;
   final Color accentColor;
+  final bool colorlessGlass;
   final Color onAccentColor;
   final IconData icon;
   final String label;
@@ -1773,6 +1629,7 @@ class _LiquidGlassSpinButton extends StatelessWidget {
             borderRadius: 30,
             accentColor: accentColor,
             isDark: isDark,
+            colorless: colorlessGlass,
             shadowStrength: 1.0,
             highlightStrength: 1.0,
             child: GlassButton.custom(
@@ -1787,12 +1644,12 @@ class _LiquidGlassSpinButton extends StatelessWidget {
               settings: LiquidGlassSettings(
                 thickness: isDark ? 22 : 25,
                 blur: 0,
-                glassColor: accentColor.withValues(
-                  alpha: isDark ? 0.04 : 0.045,
-                ),
+                glassColor: colorlessGlass
+                    ? Colors.transparent
+                    : accentColor.withValues(alpha: isDark ? 0.04 : 0.045),
                 lightAngle: isDark ? pi * 0.76 : pi * 0.72,
-                lightIntensity: isDark ? 0.0 : 1.0,
-                ambientStrength: isDark ? 0.0 : 0.03,
+                lightIntensity: colorlessGlass ? 0 : (isDark ? 0.0 : 1.0),
+                ambientStrength: colorlessGlass ? 0 : (isDark ? 0.0 : 0.03),
                 refractiveIndex: 1.5,
                 saturation: isDark ? 0.92 : 0.92,
                 chromaticAberration: 0,
@@ -1800,7 +1657,9 @@ class _LiquidGlassSpinButton extends StatelessWidget {
               interactionScale: 1.0,
               stretch: 0,
               resistance: 0.12,
-              glowColor: accentColor.withValues(alpha: isDark ? 0.0 : 0.035),
+              glowColor: colorlessGlass
+                  ? Colors.white.withValues(alpha: 0)
+                  : accentColor.withValues(alpha: isDark ? 0.0 : 0.035),
               glowRadius: isDark ? 1.1 : 1.16,
               style: GlassButtonStyle.filled,
               child: Row(

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../../domain/models.dart';
 import '../app_theme.dart';
 import '../color_utils.dart';
+import '../palette_tokens.dart';
 import '../wheel_ui_tuning.dart';
 
 final int _sessionColorSeed = DateTime.now().millisecondsSinceEpoch;
@@ -147,7 +148,7 @@ class _WheelPainter extends CustomPainter {
     final isDark = brightness == Brightness.dark;
     final zoom = detailScale.clamp(1.0, 3.2);
     final hubRadius = wheelRadius * 0.14;
-    final hubAccentColor = _paletteAccentColor(wheel.palette, isDark);
+    final hubAccentColor = paletteAccentColor(wheel.palette, isDark);
 
     _drawOuterRing(
       canvas,
@@ -507,7 +508,9 @@ class _WheelPainter extends CustomPainter {
 
     final picture = recorder.endRecording();
     if (_slicePictureCache.length >= _slicePictureCacheLimit) {
-      _slicePictureCache.remove(_slicePictureCache.keys.first);
+      final evictedKey = _slicePictureCache.keys.first;
+      final evicted = _slicePictureCache.remove(evictedKey);
+      evicted?.dispose();
     }
     _slicePictureCache[key] = picture;
     return picture;
@@ -688,23 +691,26 @@ class _WheelPainter extends CustomPainter {
     );
   }
 
-  Color _paletteAccentColor(String palette, bool isDark) {
-    return switch (palette) {
-      'random' => isDark ? const Color(0xFFBFA3FF) : const Color(0xFF7367F0),
-      'ocean' => isDark ? const Color(0xFF71C5FF) : const Color(0xFF2188F6),
-      'sunset' => isDark ? const Color(0xFFFFA36E) : const Color(0xFFEE6C2B),
-      'mint' => isDark ? const Color(0xFF7DE4CA) : const Color(0xFF16B38A),
-      'mono' => isDark ? const Color(0xFF9EA7B4) : const Color(0xFF6F7783),
-      'pink' => isDark ? const Color(0xFFFFA3C8) : const Color(0xFFFF8AB6),
-      _ => isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
-    };
-  }
-
   List<Color> _ringColorsForPalette({
     required String palette,
     required bool isDark,
     required Color accentColor,
   }) {
+    if (palette == 'transparent') {
+      return isDark
+          ? const [
+              Color(0xFF242A34),
+              Color(0xFF1C222D),
+              Color(0xFF2A313D),
+              Color(0xFF242A34),
+            ]
+          : const [
+              Color(0xFFFDFEFF),
+              Color(0xFFF4F7FB),
+              Color(0xFFEEF2F8),
+              Color(0xFFFDFEFF),
+            ];
+    }
     if (palette == 'random') {
       return isDark
           ? const [
@@ -786,6 +792,11 @@ class _WheelPainter extends CustomPainter {
         ...?paletteMap['mono'],
         ...?paletteMap['pink'],
       ],
+      'transparent' => <Color>[
+        ...?paletteMap['random'],
+        ...?paletteMap['ocean'],
+        ...?paletteMap['mint'],
+      ],
       _ => paletteMap[palette] ?? paletteMap['ocean']!,
     };
     final seed = _sessionColorSeed ^ wheelId ^ palette.hashCode ^ count;
@@ -818,6 +829,15 @@ class _WheelPainter extends CustomPainter {
         lightness = isDark
             ? 0.34 + rng.nextDouble() * 0.42
             : 0.42 + rng.nextDouble() * 0.38;
+      } else if (palette == 'transparent') {
+        saturation =
+            (isDark ? 0.46 : 0.34) +
+            (rng.nextDouble() - 0.5) * (isDark ? 0.12 : 0.1) +
+            (i.isEven ? 0.03 : -0.02);
+        lightness =
+            (isDark ? 0.64 : 0.74) +
+            rng.nextDouble() * (isDark ? 0.12 : 0.1) +
+            (i % 3 == 0 ? 0.015 : -0.01);
       } else if (palette == 'pink') {
         saturation =
             (isDark ? 0.84 : 0.78) +

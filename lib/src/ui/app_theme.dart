@@ -213,5 +213,18 @@ Map<String, List<Color>> wheelPalettes(Brightness brightness) {
             Color(0xFFC9A4FF),
             Color(0xFFAB7DFF),
           ],
+    'transparent': dark
+        ? const [
+            Color(0xFF78D8EC),
+            Color(0xFF8ABAF6),
+            Color(0xFFE7A7CC),
+            Color(0xFF86DBB9),
+          ]
+        : const [
+            Color(0xFF89D4F4),
+            Color(0xFF9BC0F8),
+            Color(0xFFF2B8D9),
+            Color(0xFF9FE4C8),
+          ],
   };
 }

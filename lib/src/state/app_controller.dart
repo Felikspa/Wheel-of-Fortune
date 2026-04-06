@@ -210,6 +210,7 @@ class AppController extends ChangeNotifier {
     await _repository.init();
     _settings = await _repository.loadSettings();
     await _reloadWheels(createDefaultIfEmpty: true, notify: false);
+    await _maybeMigrateLegacyWheelBackgroundToGlobal();
     _loading = false;
     notifyListeners();
   }
@@ -257,10 +258,32 @@ class AppController extends ChangeNotifier {
     await _repository.saveWheel(updatedWheel);
     _wheels[index] = updatedWheel;
     notifyListeners();
-    debugPrint(
-      'updateWheelConfig wheelId=$wheelId backgroundImagePath=${updatedWheel.backgroundImagePath} '
-      'opacity=${updatedWheel.backgroundImageOpacity} blur=${updatedWheel.backgroundImageBlurSigma}',
+  }
+
+  Future<void> updateGlobalBackgroundConfig({
+    String? backgroundImagePath,
+    bool clearBackgroundImagePath = false,
+    bool? enabled,
+    double? opacity,
+    double? blurSigma,
+  }) async {
+    final normalizedOpacity = opacity?.clamp(0.0, 1.0).toDouble();
+    final normalizedBlur = blurSigma?.clamp(0.0, 24.0).toDouble();
+    final currentEnabled = _settings.globalBackgroundImageEnabled;
+    final nextEnabled =
+        enabled ??
+        (clearBackgroundImagePath
+            ? false
+            : (backgroundImagePath != null ? true : currentEnabled));
+    _settings = _settings.copyWith(
+      globalBackgroundImagePath: backgroundImagePath,
+      clearGlobalBackgroundImagePath: clearBackgroundImagePath,
+      globalBackgroundImageEnabled: nextEnabled,
+      globalBackgroundImageOpacity: normalizedOpacity,
+      globalBackgroundImageBlurSigma: normalizedBlur,
     );
+    await _repository.saveSettings(_settings);
+    notifyListeners();
   }
 
   Future<void> deleteWheel(int wheelId) async {
@@ -970,6 +993,35 @@ class AppController extends ChangeNotifier {
     if (notify) {
       notifyListeners();
     }
+  }
+
+  Future<void> _maybeMigrateLegacyWheelBackgroundToGlobal() async {
+    if ((_settings.globalBackgroundImagePath?.isNotEmpty ?? false) ||
+        _wheels.isEmpty) {
+      return;
+    }
+    WheelModel? sourceWheel;
+    for (final wheel in _wheels) {
+      if (wheel.id == _selectedWheelId && wheel.backgroundImagePath != null) {
+        sourceWheel = wheel;
+        break;
+      }
+    }
+    sourceWheel ??= _wheels.firstWhere(
+      (wheel) => wheel.backgroundImagePath != null,
+      orElse: () => _wheels.first,
+    );
+    final legacyPath = sourceWheel.backgroundImagePath;
+    if (legacyPath == null || legacyPath.isEmpty) {
+      return;
+    }
+    _settings = _settings.copyWith(
+      globalBackgroundImagePath: legacyPath,
+      globalBackgroundImageEnabled: true,
+      globalBackgroundImageOpacity: sourceWheel.backgroundImageOpacity,
+      globalBackgroundImageBlurSigma: sourceWheel.backgroundImageBlurSigma,
+    );
+    await _repository.saveSettings(_settings);
   }
 
   WheelModel? _wheelById(int? wheelId) {

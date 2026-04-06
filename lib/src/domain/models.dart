@@ -257,6 +257,10 @@ class AppSettingsModel {
     this.coinByWheelId = const {},
     this.diceByWheelId = const {},
     this.cardByWheelId = const {},
+    this.globalBackgroundImagePath,
+    this.globalBackgroundImageEnabled = false,
+    this.globalBackgroundImageOpacity = 0.32,
+    this.globalBackgroundImageBlurSigma = 0,
   });
 
   final String? localeOverride;
@@ -265,6 +269,10 @@ class AppSettingsModel {
   final Map<int, CoinModeSettings> coinByWheelId;
   final Map<int, DiceModeSettings> diceByWheelId;
   final Map<int, CardModeSettings> cardByWheelId;
+  final String? globalBackgroundImagePath;
+  final bool globalBackgroundImageEnabled;
+  final double globalBackgroundImageOpacity;
+  final double globalBackgroundImageBlurSigma;
 
   DrawDisplayMode displayModeForWheel(int wheelId) {
     return modeByWheelId[wheelId] ?? DrawDisplayMode.wheel;
@@ -289,7 +297,12 @@ class AppSettingsModel {
     Map<int, CoinModeSettings>? coinByWheelId,
     Map<int, DiceModeSettings>? diceByWheelId,
     Map<int, CardModeSettings>? cardByWheelId,
+    String? globalBackgroundImagePath,
+    bool? globalBackgroundImageEnabled,
+    double? globalBackgroundImageOpacity,
+    double? globalBackgroundImageBlurSigma,
     bool clearLocaleOverride = false,
+    bool clearGlobalBackgroundImagePath = false,
   }) {
     return AppSettingsModel(
       localeOverride: clearLocaleOverride
@@ -300,6 +313,15 @@ class AppSettingsModel {
       coinByWheelId: coinByWheelId ?? this.coinByWheelId,
       diceByWheelId: diceByWheelId ?? this.diceByWheelId,
       cardByWheelId: cardByWheelId ?? this.cardByWheelId,
+      globalBackgroundImagePath: clearGlobalBackgroundImagePath
+          ? null
+          : (globalBackgroundImagePath ?? this.globalBackgroundImagePath),
+      globalBackgroundImageEnabled:
+          globalBackgroundImageEnabled ?? this.globalBackgroundImageEnabled,
+      globalBackgroundImageOpacity:
+          globalBackgroundImageOpacity ?? this.globalBackgroundImageOpacity,
+      globalBackgroundImageBlurSigma:
+          globalBackgroundImageBlurSigma ?? this.globalBackgroundImageBlurSigma,
     );
   }
 
@@ -363,6 +385,12 @@ class AppSettingsModel {
         for (final entry in cardByWheelId.entries)
           entry.key.toString(): entry.value.toJson(),
       },
+      'globalBackground': {
+        'path': globalBackgroundImagePath,
+        'enabled': globalBackgroundImageEnabled,
+        'opacity': globalBackgroundImageOpacity,
+        'blurSigma': globalBackgroundImageBlurSigma,
+      },
     };
   }
 
@@ -381,6 +409,7 @@ class AppSettingsModel {
     final rawCoin = drawSettingsJson['coinByWheelId'];
     final rawDice = drawSettingsJson['diceByWheelId'];
     final rawCard = drawSettingsJson['cardByWheelId'];
+    final rawGlobalBackground = drawSettingsJson['globalBackground'];
 
     final modes = <int, DrawDisplayMode>{};
     if (rawModes is Map) {
@@ -442,6 +471,26 @@ class AppSettingsModel {
       }
     }
 
+    String? globalBackgroundImagePath;
+    var globalBackgroundImageEnabled = false;
+    var globalBackgroundImageOpacity = 0.32;
+    var globalBackgroundImageBlurSigma = 0.0;
+    if (rawGlobalBackground is Map) {
+      final pathValue = rawGlobalBackground['path'];
+      if (pathValue is String && pathValue.trim().isNotEmpty) {
+        globalBackgroundImagePath = pathValue;
+      }
+      globalBackgroundImageEnabled = rawGlobalBackground['enabled'] == true;
+      globalBackgroundImageOpacity =
+          (_asDouble(rawGlobalBackground['opacity']) ?? 0.32)
+              .clamp(0.0, 1.0)
+              .toDouble();
+      globalBackgroundImageBlurSigma =
+          (_asDouble(rawGlobalBackground['blurSigma']) ?? 0)
+              .clamp(0.0, 24.0)
+              .toDouble();
+    }
+
     return AppSettingsModel(
       localeOverride: localeOverride,
       themeMode: themeMode,
@@ -449,6 +498,12 @@ class AppSettingsModel {
       coinByWheelId: coin,
       diceByWheelId: dice,
       cardByWheelId: card,
+      globalBackgroundImagePath: globalBackgroundImagePath,
+      globalBackgroundImageEnabled: globalBackgroundImagePath == null
+          ? false
+          : globalBackgroundImageEnabled,
+      globalBackgroundImageOpacity: globalBackgroundImageOpacity,
+      globalBackgroundImageBlurSigma: globalBackgroundImageBlurSigma,
     );
   }
 }
@@ -470,6 +525,19 @@ int? _asInt(dynamic value) {
   }
   if (value is String) {
     return int.tryParse(value);
+  }
+  return null;
+}
+
+double? _asDouble(dynamic value) {
+  if (value is double) {
+    return value;
+  }
+  if (value is num) {
+    return value.toDouble();
+  }
+  if (value is String) {
+    return double.tryParse(value);
   }
   return null;
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import '../../../l10n/app_localizations.dart';
+import '../palette_tokens.dart';
 import '../widgets/liquid_glass_chrome.dart';
 
 class DrawModeVisualStyle {
@@ -9,57 +10,22 @@ class DrawModeVisualStyle {
     required this.accentColor,
     required this.glowColors,
     required this.onAccentColor,
+    required this.colorlessGlass,
   });
 
   final Color accentColor;
   final List<Color> glowColors;
   final Color onAccentColor;
+  final bool colorlessGlass;
 }
 
 DrawModeVisualStyle resolveDrawModeVisualStyle({
   required String palette,
   required bool isDark,
 }) {
-  final accentColor = switch (palette) {
-    'random' => isDark ? const Color(0xFFBFA3FF) : const Color(0xFF7367F0),
-    'ocean' => isDark ? const Color(0xFF71C5FF) : const Color(0xFF2188F6),
-    'sunset' => isDark ? const Color(0xFFFFA36E) : const Color(0xFFEE6C2B),
-    'mint' => isDark ? const Color(0xFF7DE4CA) : const Color(0xFF16B38A),
-    'mono' => isDark ? const Color(0xFF9EA7B4) : const Color(0xFF6F7783),
-    'pink' => isDark ? const Color(0xFFFFA3C8) : const Color(0xFFFF8AB6),
-    _ => isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
-  };
-
-  final glowColors = switch (palette) {
-    'random' =>
-      isDark
-          ? [const Color(0xFF9E8BFF), const Color(0xFF54AFFF)]
-          : [const Color(0xFF7A6CF4), const Color(0xFF3E8EF9)],
-    'ocean' =>
-      isDark
-          ? [const Color(0xFF53B8FF), const Color(0xFF35D7C8)]
-          : [const Color(0xFF2A96FF), const Color(0xFF2CCFBA)],
-    'sunset' =>
-      isDark
-          ? [const Color(0xFFFF9B65), const Color(0xFFFF5A86)]
-          : [const Color(0xFFF57A38), const Color(0xFFEC4E6F)],
-    'mint' =>
-      isDark
-          ? [const Color(0xFF59DFC1), const Color(0xFF5CCBF7)]
-          : [const Color(0xFF26C8A0), const Color(0xFF3AAAE8)],
-    'mono' =>
-      isDark
-          ? [const Color(0xFF8D97A7), const Color(0xFF6B7585)]
-          : [const Color(0xFF858E9A), const Color(0xFFA8B0BC)],
-    'pink' =>
-      isDark
-          ? [const Color(0xFFFF79BA), const Color(0xFFAD8DFF)]
-          : [const Color(0xFFFF63AE), const Color(0xFFC29CFF)],
-    _ =>
-      isDark
-          ? [const Color(0xFF9AB4FF), const Color(0xFF6FA0FF)]
-          : [const Color(0xFF4E6BDB), const Color(0xFF3F8AF1)],
-  };
+  final colorlessGlass = palette == 'transparent';
+  final accentColor = paletteAccentColor(palette, isDark);
+  final glowColors = paletteGlowColors(palette, isDark);
 
   final onAccentColor = accentColor.computeLuminance() > 0.45
       ? Colors.black
@@ -69,6 +35,7 @@ DrawModeVisualStyle resolveDrawModeVisualStyle({
     accentColor: accentColor,
     glowColors: glowColors,
     onAccentColor: onAccentColor,
+    colorlessGlass: colorlessGlass,
   );
 }
 
@@ -116,11 +83,13 @@ class DrawModePillTag extends StatelessWidget {
     required this.icon,
     required this.text,
     required this.accentColor,
+    this.colorlessGlass = false,
   });
 
   final IconData icon;
   final String text;
   final Color accentColor;
+  final bool colorlessGlass;
 
   @override
   Widget build(BuildContext context) {
@@ -129,6 +98,7 @@ class DrawModePillTag extends StatelessWidget {
       borderRadius: 999,
       accentColor: accentColor,
       isDark: isDark,
+      colorless: colorlessGlass,
       shadowStrength: 0.52,
       highlightStrength: 0.95,
       child: GlassContainer(
@@ -138,9 +108,11 @@ class DrawModePillTag extends StatelessWidget {
         settings: LiquidGlassSettings(
           blur: 0,
           thickness: isDark ? 10 : 9,
-          glassColor: accentColor.withValues(alpha: isDark ? 0.16 : 0.14),
-          lightIntensity: isDark ? 0.52 : 0.66,
-          ambientStrength: isDark ? 0.03 : 0.02,
+          glassColor: colorlessGlass
+              ? Colors.transparent
+              : accentColor.withValues(alpha: isDark ? 0.16 : 0.14),
+          lightIntensity: colorlessGlass ? 0 : (isDark ? 0.52 : 0.66),
+          ambientStrength: colorlessGlass ? 0 : (isDark ? 0.03 : 0.02),
           refractiveIndex: 1.24,
           saturation: 1.0,
           chromaticAberration: 0,
@@ -168,12 +140,14 @@ class DrawModeResultCard extends StatelessWidget {
     required this.value,
     required this.accentColor,
     required this.isDark,
+    this.colorlessGlass = false,
   });
 
   final String title;
   final String value;
   final Color accentColor;
   final bool isDark;
+  final bool colorlessGlass;
 
   @override
   Widget build(BuildContext context) {
@@ -181,6 +155,7 @@ class DrawModeResultCard extends StatelessWidget {
       borderRadius: 22,
       accentColor: accentColor,
       isDark: isDark,
+      colorless: colorlessGlass,
       child: GlassContainer(
         useOwnLayer: true,
         quality: GlassQuality.premium,
@@ -188,9 +163,11 @@ class DrawModeResultCard extends StatelessWidget {
         settings: LiquidGlassSettings(
           blur: 0,
           thickness: isDark ? 16 : 14,
-          glassColor: accentColor.withValues(alpha: isDark ? 0.11 : 0.08),
-          lightIntensity: isDark ? 0.48 : 0.62,
-          ambientStrength: isDark ? 0.05 : 0.03,
+          glassColor: colorlessGlass
+              ? Colors.transparent
+              : accentColor.withValues(alpha: isDark ? 0.11 : 0.08),
+          lightIntensity: colorlessGlass ? 0 : (isDark ? 0.48 : 0.62),
+          ambientStrength: colorlessGlass ? 0 : (isDark ? 0.05 : 0.03),
           refractiveIndex: 1.22,
           saturation: 1.0,
           chromaticAberration: 0,
@@ -199,7 +176,11 @@ class DrawModeResultCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: accentColor.withValues(alpha: isDark ? 0.52 : 0.38),
+              color: colorlessGlass
+                  ? (isDark
+                        ? Colors.white.withValues(alpha: 0.22)
+                        : Colors.black.withValues(alpha: 0.14))
+                  : accentColor.withValues(alpha: isDark ? 0.52 : 0.38),
               width: 1.35,
             ),
           ),
@@ -233,12 +214,14 @@ class DrawModeFrostedPanel extends StatelessWidget {
     required this.accentColor,
     required this.isDark,
     required this.child,
+    this.colorlessGlass = false,
     this.padding = const EdgeInsets.fromLTRB(12, 12, 12, 12),
   });
 
   final Color accentColor;
   final bool isDark;
   final Widget child;
+  final bool colorlessGlass;
   final EdgeInsetsGeometry padding;
 
   @override
@@ -247,6 +230,7 @@ class DrawModeFrostedPanel extends StatelessWidget {
       borderRadius: 22,
       accentColor: accentColor,
       isDark: isDark,
+      colorless: colorlessGlass,
       shadowStrength: 0.86,
       highlightStrength: 0.9,
       child: GlassContainer(
@@ -256,9 +240,11 @@ class DrawModeFrostedPanel extends StatelessWidget {
         settings: LiquidGlassSettings(
           blur: 0,
           thickness: isDark ? 14 : 12,
-          glassColor: accentColor.withValues(alpha: isDark ? 0.08 : 0.06),
-          lightIntensity: isDark ? 0.45 : 0.58,
-          ambientStrength: isDark ? 0.04 : 0.03,
+          glassColor: colorlessGlass
+              ? Colors.transparent
+              : accentColor.withValues(alpha: isDark ? 0.08 : 0.06),
+          lightIntensity: colorlessGlass ? 0 : (isDark ? 0.45 : 0.58),
+          ambientStrength: colorlessGlass ? 0 : (isDark ? 0.04 : 0.03),
           refractiveIndex: 1.2,
           saturation: 1.0,
           chromaticAberration: 0,
@@ -267,7 +253,11 @@ class DrawModeFrostedPanel extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: accentColor.withValues(alpha: isDark ? 0.46 : 0.28),
+              color: colorlessGlass
+                  ? (isDark
+                        ? Colors.white.withValues(alpha: 0.18)
+                        : Colors.black.withValues(alpha: 0.1))
+                  : accentColor.withValues(alpha: isDark ? 0.46 : 0.28),
             ),
           ),
           child: Padding(padding: padding, child: child),
@@ -285,6 +275,7 @@ class DrawModeGlassActionButton extends StatelessWidget {
     required this.label,
     required this.accentColor,
     required this.onAccentColor,
+    this.colorlessGlass = false,
   });
 
   final VoidCallback? onPressed;
@@ -292,6 +283,7 @@ class DrawModeGlassActionButton extends StatelessWidget {
   final String label;
   final Color accentColor;
   final Color onAccentColor;
+  final bool colorlessGlass;
 
   @override
   Widget build(BuildContext context) {
@@ -312,6 +304,7 @@ class DrawModeGlassActionButton extends StatelessWidget {
             borderRadius: 18,
             accentColor: accentColor,
             isDark: isDark,
+            colorless: colorlessGlass,
             child: GlassButton.custom(
               onTap: onPressed ?? () {},
               enabled: enabled,
@@ -324,9 +317,11 @@ class DrawModeGlassActionButton extends StatelessWidget {
               settings: LiquidGlassSettings(
                 blur: 0,
                 thickness: isDark ? 18 : 20,
-                glassColor: accentColor.withValues(alpha: isDark ? 0.08 : 0.1),
-                lightIntensity: isDark ? 0.54 : 0.86,
-                ambientStrength: isDark ? 0.02 : 0.03,
+                glassColor: colorlessGlass
+                    ? Colors.transparent
+                    : accentColor.withValues(alpha: isDark ? 0.08 : 0.1),
+                lightIntensity: colorlessGlass ? 0 : (isDark ? 0.54 : 0.86),
+                ambientStrength: colorlessGlass ? 0 : (isDark ? 0.02 : 0.03),
                 refractiveIndex: 1.38,
                 saturation: 1.08,
                 chromaticAberration: 0,
@@ -334,7 +329,9 @@ class DrawModeGlassActionButton extends StatelessWidget {
               interactionScale: 1.0,
               stretch: 0,
               resistance: 0.1,
-              glowColor: accentColor.withValues(alpha: isDark ? 0.08 : 0.12),
+              glowColor: colorlessGlass
+                  ? Colors.white.withValues(alpha: 0)
+                  : accentColor.withValues(alpha: isDark ? 0.08 : 0.12),
               glowRadius: 1.08,
               style: GlassButtonStyle.filled,
               child: Row(

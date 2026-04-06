@@ -86,6 +86,7 @@ class _CardModePageState extends State<CardModePage> {
                           l10n.modeSoftAntiRepeat,
                       },
                       accentColor: style.accentColor,
+                      colorlessGlass: style.colorlessGlass,
                     ),
                   ],
                 ),
@@ -93,6 +94,7 @@ class _CardModePageState extends State<CardModePage> {
                 DrawModeFrostedPanel(
                   accentColor: style.accentColor,
                   isDark: isDark,
+                  colorlessGlass: style.colorlessGlass,
                   padding: const EdgeInsets.fromLTRB(8, 2, 8, 2),
                   child: SwitchListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 4),
@@ -111,6 +113,7 @@ class _CardModePageState extends State<CardModePage> {
                   child: DrawModeFrostedPanel(
                     accentColor: style.accentColor,
                     isDark: isDark,
+                    colorlessGlass: style.colorlessGlass,
                     padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
                     child: GridView.builder(
                       key: ValueKey<int>(_shuffleVersion),
@@ -170,6 +173,7 @@ class _CardModePageState extends State<CardModePage> {
                       : () => _shuffle(controller, wheel),
                   accentColor: style.accentColor,
                   onAccentColor: style.onAccentColor,
+                  colorlessGlass: style.colorlessGlass,
                   icon: controller.busy
                       ? Icons.motion_photos_paused_rounded
                       : Icons.shuffle_rounded,
@@ -181,6 +185,7 @@ class _CardModePageState extends State<CardModePage> {
                   value: winner?.title ?? l10n.noResultYet,
                   accentColor: style.accentColor,
                   isDark: isDark,
+                  colorlessGlass: style.colorlessGlass,
                 ),
               ],
             ),
@@ -204,8 +209,9 @@ class _CardModePageState extends State<CardModePage> {
       for (final id in _orderedItemIds)
         if (validIds.contains(id)) id,
     ];
+    final nextSet = next.toSet();
     for (final item in wheel.items) {
-      if (!next.contains(item.id)) {
+      if (nextSet.add(item.id)) {
         next.add(item.id);
       }
     }

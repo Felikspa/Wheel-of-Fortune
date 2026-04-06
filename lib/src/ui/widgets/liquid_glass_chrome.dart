@@ -6,6 +6,7 @@ class LiquidGlassChrome extends StatelessWidget {
     required this.child,
     required this.accentColor,
     required this.isDark,
+    this.colorless = false,
     this.borderRadius = 22,
     this.shadowStrength = 1.0,
     this.highlightStrength = 1.0,
@@ -14,6 +15,7 @@ class LiquidGlassChrome extends StatelessWidget {
   final Widget child;
   final Color accentColor;
   final bool isDark;
+  final bool colorless;
   final double borderRadius;
   final double shadowStrength;
   final double highlightStrength;
@@ -24,18 +26,24 @@ class LiquidGlassChrome extends StatelessWidget {
     final highlight = highlightStrength.clamp(0.0, 1.6).toDouble();
     final radius = borderRadius.isFinite ? borderRadius : 22.0;
     final shallowSurface = radius >= 100;
+    final effectiveHighlightAlpha = (isDark ? 0.66 : 0.88) *
+        (colorless ? (isDark ? 0.82 : 0.72) : 1.0) *
+        highlight;
+    final baseShadowAlpha = colorless
+        ? (isDark ? 0.13 : 0.035)
+        : (isDark ? 0.22 : 0.1);
 
     Widget content = child;
     if (highlight > 0) {
       content = CustomPaint(
         foregroundPainter: _LiquidGlassEdgeHighlightPainter(
           borderRadius: radius,
-          highlightColor: Colors.white.withValues(
-            alpha: (isDark ? 0.66 : 0.88) * highlight,
-          ),
-          tintColor: accentColor.withValues(
-            alpha: (isDark ? 0.24 : 0.32) * highlight,
-          ),
+          highlightColor: Colors.white.withValues(alpha: effectiveHighlightAlpha),
+          tintColor: colorless
+              ? Colors.white.withValues(alpha: 0)
+              : accentColor.withValues(
+                  alpha: (isDark ? 0.24 : 0.32) * highlight,
+                ),
         ),
         child: content,
       );
@@ -47,17 +55,19 @@ class LiquidGlassChrome extends StatelessWidget {
           borderRadius: BorderRadius.circular(radius),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(
-                alpha: (isDark ? 0.22 : 0.1) * shadow,
-              ),
-              blurRadius: shallowSurface ? 12 : 16,
+              color: Colors.black.withValues(alpha: baseShadowAlpha * shadow),
+              blurRadius: colorless
+                  ? (shallowSurface ? 8 : 11)
+                  : (shallowSurface ? 12 : 16),
               spreadRadius: shallowSurface ? 0.12 : 0.25,
-              offset: const Offset(0, 8),
+              offset: colorless ? const Offset(0, 4) : const Offset(0, 8),
             ),
             BoxShadow(
-              color: accentColor.withValues(
-                alpha: (isDark ? 0.1 : 0.1) * shadow,
-              ),
+              color: colorless
+                  ? Colors.white.withValues(alpha: 0)
+                  : accentColor.withValues(
+                      alpha: (isDark ? 0.1 : 0.1) * shadow,
+                    ),
               blurRadius: shallowSurface ? 14 : 20,
               spreadRadius: 0,
               offset: const Offset(0, 2),

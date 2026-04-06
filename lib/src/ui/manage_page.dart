@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../domain/models.dart';
 import '../services/wheel_codec.dart';
 import '../state/app_controller.dart';
+import 'palette_tokens.dart';
 import 'widgets/item_editor_dialog.dart';
 import 'widgets/liquid_glass_chrome.dart';
 
@@ -25,7 +26,11 @@ class ManagePage extends StatelessWidget {
         final wheel = controller.selectedWheel;
         final theme = Theme.of(context);
         final isDark = theme.brightness == Brightness.dark;
-        final accentColor = _paletteAccentColor(wheel?.palette, isDark);
+        final accentColor = paletteAccentColor(
+          wheel?.palette ?? 'random',
+          isDark,
+        );
+        final colorlessGlass = wheel?.palette == 'transparent';
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
           children: [
@@ -37,6 +42,7 @@ class ManagePage extends StatelessWidget {
             const SizedBox(height: 8),
             _FrostedPanel(
               accentColor: accentColor,
+              colorlessGlass: colorlessGlass,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -80,6 +86,7 @@ class ManagePage extends StatelessWidget {
             const SizedBox(height: 8),
             _FrostedPanel(
               accentColor: accentColor,
+              colorlessGlass: colorlessGlass,
               child: Column(
                 children: [
                   Row(
@@ -139,7 +146,20 @@ class ManagePage extends StatelessWidget {
               _ItemsCard(wheel: wheel, accentColor: accentColor),
               const SizedBox(height: 16),
             ],
-            _AppSettingsCard(accentColor: accentColor),
+            _AppSettingsCard(
+              accentColor: accentColor,
+              colorlessGlass: colorlessGlass,
+            ),
+            const SizedBox(height: 22),
+            Center(
+              child: FractionallySizedBox(
+                widthFactor: 0.5,
+                child: _LoveSignatureGlass(
+                  accentColor: accentColor,
+                  colorlessGlass: colorlessGlass,
+                ),
+              ),
+            ),
           ],
         );
       },
@@ -295,8 +315,9 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
   void initState() {
     super.initState();
     _spinDuration = widget.wheel.spinDurationMs.toDouble();
-    _backgroundOpacity = widget.wheel.backgroundImageOpacity;
-    _backgroundBlur = widget.wheel.backgroundImageBlurSigma;
+    final settings = context.read<AppController>().settings;
+    _backgroundOpacity = settings.globalBackgroundImageOpacity;
+    _backgroundBlur = settings.globalBackgroundImageBlurSigma;
   }
 
   @override
@@ -308,17 +329,12 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
     if (!_isDraggingDuration && (wheelChanged || valueChanged)) {
       _spinDuration = widget.wheel.spinDurationMs.toDouble();
     }
-    final opacityChanged =
-        oldWidget.wheel.backgroundImageOpacity !=
-        widget.wheel.backgroundImageOpacity;
-    if (!_isDraggingBackgroundOpacity && (wheelChanged || opacityChanged)) {
-      _backgroundOpacity = widget.wheel.backgroundImageOpacity;
+    final settings = context.read<AppController>().settings;
+    if (!_isDraggingBackgroundOpacity) {
+      _backgroundOpacity = settings.globalBackgroundImageOpacity;
     }
-    final blurChanged =
-        oldWidget.wheel.backgroundImageBlurSigma !=
-        widget.wheel.backgroundImageBlurSigma;
-    if (!_isDraggingBackgroundBlur && (wheelChanged || blurChanged)) {
-      _backgroundBlur = widget.wheel.backgroundImageBlurSigma;
+    if (!_isDraggingBackgroundBlur) {
+      _backgroundBlur = settings.globalBackgroundImageBlurSigma;
     }
   }
 
@@ -326,17 +342,24 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final controller = context.read<AppController>();
+    final settings = controller.settings;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isZh = Localizations.localeOf(context).languageCode == 'zh';
     final randomPaletteLabel = isZh ? '随机' : 'Random';
     final pinkPaletteLabel = isZh ? '樱粉' : 'Pink';
-    final backgroundImageLabel = isZh ? '背景图' : 'Background Image';
+    final transparentPaletteLabel = isZh ? '透明' : 'Transparent';
+    final backgroundImageLabel = isZh ? '全局背景图' : 'Global Background Image';
+    final enableBackgroundLabel = isZh ? '启用背景图' : 'Enable Background';
     final chooseImageLabel = isZh ? '选择图片' : 'Choose Image';
     final changeImageLabel = isZh ? '更换图片' : 'Change Image';
     final clearImageLabel = isZh ? '清除图片' : 'Clear Image';
     final opacityLabel = isZh ? '透明度' : 'Opacity';
     final blurLabel = isZh ? '模糊度' : 'Blur';
+    final backgroundImagePath = settings.globalBackgroundImagePath;
+    final hasBackgroundImage = backgroundImagePath != null;
+    final backgroundEnabled =
+        hasBackgroundImage && settings.globalBackgroundImageEnabled;
     final paletteOptions = <String, String>{
       'random': randomPaletteLabel,
       'ocean': l10n.paletteOcean,
@@ -344,10 +367,13 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
       'mint': l10n.paletteMint,
       'mono': l10n.paletteMono,
       'pink': pinkPaletteLabel,
+      'transparent': transparentPaletteLabel,
     };
+    final colorlessGlass = widget.wheel.palette == 'transparent';
 
     return _FrostedPanel(
       accentColor: widget.accentColor,
+      colorlessGlass: colorlessGlass,
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -491,13 +517,11 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
                   onPressed: () => _pickBackgroundImage(controller),
                   icon: const Icon(Icons.image_outlined),
                   label: Text(
-                    widget.wheel.backgroundImagePath == null
-                        ? chooseImageLabel
-                        : changeImageLabel,
+                    hasBackgroundImage ? changeImageLabel : chooseImageLabel,
                   ),
                 ),
               ),
-              if (widget.wheel.backgroundImagePath != null) ...[
+              if (hasBackgroundImage) ...[
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
@@ -509,15 +533,27 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
               ],
             ],
           ),
-          if (widget.wheel.backgroundImagePath != null) ...[
+          if (hasBackgroundImage) ...[
             const SizedBox(height: 8),
             Text(
-              _basename(widget.wheel.backgroundImagePath!),
+              _basename(backgroundImagePath),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodySmall,
             ),
             const SizedBox(height: 10),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: backgroundEnabled,
+              title: Text(enableBackgroundLabel),
+              activeThumbColor: widget.accentColor,
+              activeTrackColor: widget.accentColor.withValues(
+                alpha: isDark ? 0.4 : 0.28,
+              ),
+              onChanged: (value) async {
+                await controller.updateGlobalBackgroundConfig(enabled: value);
+              },
+            ),
             Text('$opacityLabel: ${_backgroundOpacity.toStringAsFixed(2)}'),
             Slider(
               value: _backgroundOpacity.clamp(0.0, 1.0),
@@ -536,10 +572,7 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
               },
               onChangeEnd: (value) async {
                 _isDraggingBackgroundOpacity = false;
-                await controller.updateWheelConfig(
-                  wheelId: widget.wheel.id,
-                  backgroundImageOpacity: value,
-                );
+                await controller.updateGlobalBackgroundConfig(opacity: value);
               },
             ),
             Text('$blurLabel: ${_backgroundBlur.toStringAsFixed(1)}'),
@@ -560,10 +593,7 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
               },
               onChangeEnd: (value) async {
                 _isDraggingBackgroundBlur = false;
-                await controller.updateWheelConfig(
-                  wheelId: widget.wheel.id,
-                  backgroundImageBlurSigma: value,
-                );
+                await controller.updateGlobalBackgroundConfig(blurSigma: value);
               },
             ),
           ],
@@ -591,7 +621,7 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
         await backgroundsDir.create(recursive: true);
       }
       final target = File(
-        '${backgroundsDir.path}/wheel_${widget.wheel.id}_${DateTime.now().millisecondsSinceEpoch}.$ext',
+        '${backgroundsDir.path}/global_${DateTime.now().millisecondsSinceEpoch}.$ext',
       );
       final sourcePath = picked.path;
       if (sourcePath != null && sourcePath.isNotEmpty) {
@@ -608,22 +638,24 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
       } else {
         throw StateError('No image bytes available from picker.');
       }
-      final previous = widget.wheel.backgroundImagePath;
+      final previous = controller.settings.globalBackgroundImagePath;
       if (previous != null && previous != target.path) {
         final oldFile = File(previous);
         if (oldFile.existsSync()) {
           await oldFile.delete();
         }
       }
-      await controller.updateWheelConfig(
-        wheelId: widget.wheel.id,
+      await controller.updateGlobalBackgroundConfig(
         backgroundImagePath: target.path,
+        enabled: true,
       );
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isZh ? '背景图已应用' : 'Background image applied')),
+        SnackBar(
+          content: Text(isZh ? '全局背景图已应用' : 'Global background image applied'),
+        ),
       );
     } catch (error) {
       if (!mounted) {
@@ -639,16 +671,16 @@ class _WheelSettingsCardState extends State<_WheelSettingsCard> {
   }
 
   Future<void> _clearBackgroundImage(AppController controller) async {
-    final previous = widget.wheel.backgroundImagePath;
+    final previous = controller.settings.globalBackgroundImagePath;
     if (previous != null) {
       final oldFile = File(previous);
       if (oldFile.existsSync()) {
         await oldFile.delete();
       }
     }
-    await controller.updateWheelConfig(
-      wheelId: widget.wheel.id,
+    await controller.updateGlobalBackgroundConfig(
       clearBackgroundImagePath: true,
+      enabled: false,
     );
   }
 
@@ -689,8 +721,10 @@ class _ItemsCard extends StatelessWidget {
       theme.colorScheme.surface.withValues(alpha: isDark ? 0.32 : 0.56),
     );
     final itemBorder = accentColor.withValues(alpha: isDark ? 0.34 : 0.24);
+    final colorlessGlass = wheel.palette == 'transparent';
     return _FrostedPanel(
       accentColor: accentColor,
+      colorlessGlass: colorlessGlass,
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1006,9 +1040,13 @@ class _ItemsCard extends StatelessWidget {
 }
 
 class _AppSettingsCard extends StatelessWidget {
-  const _AppSettingsCard({required this.accentColor});
+  const _AppSettingsCard({
+    required this.accentColor,
+    this.colorlessGlass = false,
+  });
 
   final Color accentColor;
+  final bool colorlessGlass;
 
   @override
   Widget build(BuildContext context) {
@@ -1018,6 +1056,7 @@ class _AppSettingsCard extends StatelessWidget {
         final settings = controller.settings;
         return _FrostedPanel(
           accentColor: accentColor,
+          colorlessGlass: colorlessGlass,
           padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1243,15 +1282,404 @@ class _ActionButton extends StatelessWidget {
   }
 }
 
+class _LoveSignatureGlass extends StatelessWidget {
+  const _LoveSignatureGlass({
+    required this.accentColor,
+    this.colorlessGlass = false,
+  });
+
+  final Color accentColor;
+  final bool colorlessGlass;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final textColor =
+        theme.textTheme.labelLarge?.color ??
+        (isDark ? Colors.white : Colors.black);
+    return LiquidStretch(
+      interactionScale: 2,
+      stretch: 0.3,
+      resistance: 0.003,
+      hitTestBehavior: HitTestBehavior.translucent,
+      child: SizedBox(
+        height: 42,
+        child: LiquidGlassChrome(
+          borderRadius: 0,
+          accentColor: accentColor,
+          isDark: isDark,
+          colorless: colorlessGlass,
+          shadowStrength: 1.0,
+          highlightStrength: 1.0,
+          child: GlassButton.custom(
+            onTap: () {},
+            enabled: true,
+            label: 'LJX & HLY',
+            width: double.infinity,
+            height: 42,
+            useOwnLayer: true,
+            quality: GlassQuality.premium,
+            shape: const LiquidRoundedRectangle(borderRadius: 0),
+            settings: LiquidGlassSettings(
+              thickness: isDark ? 50 : 50,
+              blur: 0,
+              glassColor: const Color(
+                0xFFC2185B,
+              ).withValues(alpha: isDark ? 0.09 : 0.09),
+              lightAngle: isDark ? 2.35 : 2.26,
+              lightIntensity: colorlessGlass ? 0 : (isDark ? 0.0 : 0.9),
+              ambientStrength: colorlessGlass ? 0 : (isDark ? 0.0 : 0.03),
+              refractiveIndex: 1.85,
+              saturation: 1.3,
+              chromaticAberration: 0.07,
+            ),
+            interactionScale: 1.0,
+            stretch: 0,
+            resistance: 0.05,
+            glowColor: colorlessGlass
+                ? Colors.white.withValues(alpha: 0)
+                : accentColor.withValues(alpha: isDark ? 0.03 : 0.03),
+            glowRadius: 1.05,
+            style: GlassButtonStyle.filled,
+            child: CustomPaint(
+              painter: _LoveSignatureGemPainter(
+                accentColor: accentColor,
+                isDark: isDark,
+                colorlessGlass: colorlessGlass,
+              ),
+              child: Center(
+                child: Text(
+                  'LJX & HLY',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: textColor.withValues(alpha: isDark ? 0.92 : 0.86),
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LoveSignatureGemPainter extends CustomPainter {
+  const _LoveSignatureGemPainter({
+    required this.accentColor,
+    required this.isDark,
+    required this.colorlessGlass,
+  });
+
+  final Color accentColor;
+  final bool isDark;
+  final bool colorlessGlass;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty) {
+      return;
+    }
+
+    final outer = (Offset.zero & size).deflate(0.9);
+    final inner = Rect.fromCenter(
+      center: outer.center,
+      width: outer.width * 0.58,
+      height: outer.height * 0.46,
+    );
+
+    final brightEdge = Colors.white.withValues(alpha: isDark ? 0.34 : 0.42);
+    final coolEdge =
+        (colorlessGlass
+                ? const Color(0xFF9AB7DC)
+                : Color.lerp(accentColor, const Color(0xFFAEDFFF), 0.45)!)
+            .withValues(alpha: isDark ? 0.22 : 0.2);
+    final darkEdge = Colors.black.withValues(alpha: isDark ? 0.16 : 0.1);
+
+    final topFacetPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          brightEdge.withValues(alpha: brightEdge.a * 0.22),
+          coolEdge.withValues(alpha: coolEdge.a * 0.12),
+          Colors.transparent,
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.26, 0.64, 1.0],
+      ).createShader(outer);
+
+    final leftFacetPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          darkEdge.withValues(alpha: darkEdge.a * 0.4),
+          darkEdge.withValues(alpha: darkEdge.a * 0.18),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.36, 1.0],
+      ).createShader(outer);
+
+    final rightFacetPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.transparent,
+          coolEdge.withValues(alpha: coolEdge.a * 0.14),
+          coolEdge.withValues(alpha: coolEdge.a * 0.24),
+        ],
+        stops: const [0.12, 0.58, 1.0],
+      ).createShader(outer);
+
+    final bottomFacetPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          Colors.transparent,
+          darkEdge.withValues(alpha: darkEdge.a * 0.12),
+          darkEdge.withValues(alpha: darkEdge.a * 0.3),
+        ],
+        stops: const [0.22, 0.62, 1.0],
+      ).createShader(outer);
+
+    canvas.drawPath(
+      Path()
+        ..moveTo(outer.left, outer.top)
+        ..lineTo(outer.right, outer.top)
+        ..lineTo(inner.right, inner.top)
+        ..lineTo(inner.left, inner.top)
+        ..close(),
+      topFacetPaint,
+    );
+
+    canvas.drawPath(
+      Path()
+        ..moveTo(outer.left, outer.top)
+        ..lineTo(inner.left, inner.top)
+        ..lineTo(inner.left, inner.bottom)
+        ..lineTo(outer.left, outer.bottom)
+        ..close(),
+      leftFacetPaint,
+    );
+
+    canvas.drawPath(
+      Path()
+        ..moveTo(inner.right, inner.top)
+        ..lineTo(outer.right, outer.top)
+        ..lineTo(outer.right, outer.bottom)
+        ..lineTo(inner.right, inner.bottom)
+        ..close(),
+      rightFacetPaint,
+    );
+
+    canvas.drawPath(
+      Path()
+        ..moveTo(inner.left, inner.bottom)
+        ..lineTo(inner.right, inner.bottom)
+        ..lineTo(outer.right, outer.bottom)
+        ..lineTo(outer.left, outer.bottom)
+        ..close(),
+      bottomFacetPaint,
+    );
+
+    final bodyGlazePaint = Paint()
+      ..style = PaintingStyle.fill
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          brightEdge.withValues(alpha: brightEdge.a * 0.08),
+          Colors.transparent,
+          darkEdge.withValues(alpha: darkEdge.a * 0.18),
+        ],
+        stops: const [0.0, 0.48, 1.0],
+      ).createShader(outer);
+    canvas.drawRect(outer, bodyGlazePaint);
+
+    final specularBandPaint = Paint()
+      ..style = PaintingStyle.fill
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          brightEdge.withValues(alpha: brightEdge.a * 0.2),
+          brightEdge.withValues(alpha: brightEdge.a * 0.12),
+          brightEdge.withValues(alpha: brightEdge.a * 0.04),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.34, 0.7, 1.0],
+      ).createShader(outer);
+
+    canvas.save();
+    canvas.clipRect(outer);
+    canvas.drawPath(
+      Path()
+        ..moveTo(
+          outer.left + outer.width * 0.08,
+          outer.top + outer.height * 0.06,
+        )
+        ..lineTo(
+          outer.left + outer.width * 0.54,
+          outer.top + outer.height * 0.06,
+        )
+        ..lineTo(
+          outer.left + outer.width * 0.34,
+          outer.top + outer.height * 0.46,
+        )
+        ..lineTo(
+          outer.left - outer.width * 0.02,
+          outer.top + outer.height * 0.46,
+        )
+        ..close(),
+      specularBandPaint,
+    );
+    canvas.restore();
+
+    final outerSoftStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          brightEdge.withValues(alpha: brightEdge.a * 0.44),
+          coolEdge.withValues(alpha: coolEdge.a * 0.3),
+          darkEdge.withValues(alpha: darkEdge.a * 0.52),
+        ],
+      ).createShader(outer);
+    final innerSoftStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..shader = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          brightEdge.withValues(alpha: brightEdge.a * 0.38),
+          coolEdge.withValues(alpha: coolEdge.a * 0.26),
+          darkEdge.withValues(alpha: darkEdge.a * 0.44),
+        ],
+      ).createShader(inner);
+
+    final outerTopStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.06
+      ..color = brightEdge.withValues(alpha: brightEdge.a * 0.95);
+    final outerLeftStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..color = coolEdge.withValues(alpha: coolEdge.a * 0.9);
+    final outerRightStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.95
+      ..color = darkEdge.withValues(alpha: darkEdge.a * 0.8);
+    final outerBottomStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.95
+      ..color = darkEdge;
+
+    final innerTopStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.96
+      ..color = brightEdge.withValues(alpha: brightEdge.a * 0.9);
+    final innerLeftStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.9
+      ..color = coolEdge.withValues(alpha: coolEdge.a * 0.9);
+    final innerRightStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.86
+      ..color = darkEdge.withValues(alpha: darkEdge.a * 0.78);
+    final innerBottomStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.86
+      ..color = darkEdge;
+
+    final connectorSoftStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5
+      ..strokeCap = StrokeCap.round
+      ..color = brightEdge.withValues(alpha: brightEdge.a * 0.24);
+    final connectorTopLeftStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 0.94
+      ..color = brightEdge.withValues(alpha: brightEdge.a * 0.9);
+    final connectorTopRightStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 0.9
+      ..color = coolEdge.withValues(alpha: coolEdge.a * 0.84);
+    final connectorBottomRightStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 0.84
+      ..color = darkEdge.withValues(alpha: darkEdge.a * 0.76);
+    final connectorBottomLeftStroke = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = 0.84
+      ..color = darkEdge.withValues(alpha: darkEdge.a * 0.72);
+
+    canvas.drawRect(outer.deflate(0.3), outerSoftStroke);
+    canvas.drawRect(inner.deflate(0.2), innerSoftStroke);
+
+    canvas.drawLine(outer.topLeft, outer.topRight, outerTopStroke);
+    canvas.drawLine(outer.topLeft, outer.bottomLeft, outerLeftStroke);
+    canvas.drawLine(outer.topRight, outer.bottomRight, outerRightStroke);
+    canvas.drawLine(outer.bottomLeft, outer.bottomRight, outerBottomStroke);
+
+    canvas.drawLine(inner.topLeft, inner.topRight, innerTopStroke);
+    canvas.drawLine(inner.topLeft, inner.bottomLeft, innerLeftStroke);
+    canvas.drawLine(inner.topRight, inner.bottomRight, innerRightStroke);
+    canvas.drawLine(inner.bottomLeft, inner.bottomRight, innerBottomStroke);
+
+    canvas.drawLine(outer.topLeft, inner.topLeft, connectorSoftStroke);
+    canvas.drawLine(outer.topRight, inner.topRight, connectorSoftStroke);
+    canvas.drawLine(outer.bottomRight, inner.bottomRight, connectorSoftStroke);
+    canvas.drawLine(outer.bottomLeft, inner.bottomLeft, connectorSoftStroke);
+
+    canvas.drawLine(outer.topLeft, inner.topLeft, connectorTopLeftStroke);
+    canvas.drawLine(outer.topRight, inner.topRight, connectorTopRightStroke);
+    canvas.drawLine(
+      outer.bottomRight,
+      inner.bottomRight,
+      connectorBottomRightStroke,
+    );
+    canvas.drawLine(
+      outer.bottomLeft,
+      inner.bottomLeft,
+      connectorBottomLeftStroke,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _LoveSignatureGemPainter oldDelegate) {
+    return oldDelegate.accentColor != accentColor ||
+        oldDelegate.isDark != isDark ||
+        oldDelegate.colorlessGlass != colorlessGlass;
+  }
+}
+
 class _FrostedPanel extends StatelessWidget {
   const _FrostedPanel({
     required this.child,
     required this.accentColor,
+    this.colorlessGlass = false,
     this.padding = const EdgeInsets.all(12),
   });
 
   final Widget child;
   final Color accentColor;
+  final bool colorlessGlass;
   final EdgeInsetsGeometry padding;
 
   @override
@@ -1262,6 +1690,7 @@ class _FrostedPanel extends StatelessWidget {
       borderRadius: 22,
       accentColor: accentColor,
       isDark: isDark,
+      colorless: colorlessGlass,
       shadowStrength: 0.9,
       highlightStrength: 0.92,
       child: GlassContainer(
@@ -1270,10 +1699,12 @@ class _FrostedPanel extends StatelessWidget {
         shape: const LiquidRoundedSuperellipse(borderRadius: 22),
         settings: LiquidGlassSettings(
           blur: 0,
-          thickness: isDark ? 16 : 14,
-          glassColor: accentColor.withValues(alpha: isDark ? 0.06 : 0.05),
-          lightIntensity: isDark ? 0.45 : 0.6,
-          ambientStrength: isDark ? 0.04 : 0.03,
+          thickness: isDark ? 20 : 18,
+          glassColor: colorlessGlass
+              ? Colors.transparent
+              : accentColor.withValues(alpha: isDark ? 0.06 : 0.05),
+          lightIntensity: colorlessGlass ? 0 : (isDark ? 0.45 : 0.6),
+          ambientStrength: colorlessGlass ? 0 : (isDark ? 0.04 : 0.03),
           refractiveIndex: 1.2,
           saturation: 1.0,
           chromaticAberration: 0,
@@ -1282,9 +1713,13 @@ class _FrostedPanel extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
-              color: isDark
-                  ? Colors.white.withValues(alpha: 0.12)
-                  : Colors.white.withValues(alpha: 0.64),
+              color: colorlessGlass
+                  ? (isDark
+                        ? Colors.white.withValues(alpha: 0.16)
+                        : Colors.black.withValues(alpha: 0.1))
+                  : (isDark
+                        ? Colors.white.withValues(alpha: 0.12)
+                        : Colors.white.withValues(alpha: 0.64)),
             ),
           ),
           child: Padding(padding: padding, child: child),
@@ -1307,18 +1742,6 @@ Color _dropdownPopupColor(BuildContext context, {required Color accentColor}) {
           accentColor.withValues(alpha: 0.08),
           const Color(0xFFF7FAFF).withValues(alpha: 0.97),
         );
-}
-
-Color _paletteAccentColor(String? palette, bool isDark) {
-  return switch (palette) {
-    'random' => isDark ? const Color(0xFFBFA3FF) : const Color(0xFF7367F0),
-    'ocean' => isDark ? const Color(0xFF71C5FF) : const Color(0xFF2188F6),
-    'sunset' => isDark ? const Color(0xFFFFA36E) : const Color(0xFFEE6C2B),
-    'mint' => isDark ? const Color(0xFF7DE4CA) : const Color(0xFF16B38A),
-    'mono' => isDark ? const Color(0xFF9EA7B4) : const Color(0xFF6F7783),
-    'pink' => isDark ? const Color(0xFFFFA3C8) : const Color(0xFFFF8AB6),
-    _ => isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
-  };
 }
 
 Future<String?> _showTextInputDialog(

@@ -4,11 +4,13 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../domain/models.dart';
 import '../state/app_controller.dart';
+import 'palette_tokens.dart';
 import 'draw_mode_page.dart';
 import 'manage_page.dart';
 import 'wheel_ui_tuning.dart';
@@ -26,7 +28,7 @@ class _HomeShellState extends State<HomeShell> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final PageController _pageController;
   late final Offset _orbJitterTopRight;
-  late final Offset _orbJitterBottomLeft;
+  DateTime? _lastBackPressAt;
   int _currentPage = 0;
 
   @override
@@ -37,10 +39,6 @@ class _HomeShellState extends State<HomeShell> {
     _orbJitterTopRight = Offset(
       (rng.nextDouble() - 0.5) * 56,
       (rng.nextDouble() - 0.5) * 56,
-    );
-    _orbJitterBottomLeft = Offset(
-      (rng.nextDouble() - 0.5) * 64,
-      (rng.nextDouble() - 0.5) * 64,
     );
   }
 
@@ -66,6 +64,50 @@ class _HomeShellState extends State<HomeShell> {
     scaffoldState.openDrawer();
   }
 
+  Future<bool> _handleWillPop() async {
+    final scaffoldState = _scaffoldKey.currentState;
+    if (scaffoldState?.isDrawerOpen == true) {
+      Navigator.of(context).pop();
+      return false;
+    }
+
+    final now = DateTime.now();
+    final last = _lastBackPressAt;
+    if (last == null ||
+        now.difference(last) > const Duration(milliseconds: 1500)) {
+      _lastBackPressAt = now;
+      if (mounted) {
+        final locale = Localizations.localeOf(context).languageCode;
+        final message = locale.startsWith('zh')
+            ? '再按一次返回键退出应用'
+            : 'Press back again to exit';
+        final messenger = ScaffoldMessenger.of(context);
+        messenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(message),
+              duration: const Duration(milliseconds: 1200),
+            ),
+          );
+      }
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _handleBackNavigationRequest() async {
+    final shouldPop = await _handleWillPop();
+    if (!shouldPop || !mounted) {
+      return;
+    }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+      return;
+    }
+    await SystemNavigator.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AppController>(
@@ -73,8 +115,11 @@ class _HomeShellState extends State<HomeShell> {
         final l10n = AppLocalizations.of(context)!;
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final selectedWheel = controller.selectedWheel;
+        final globalBackgroundPath =
+            controller.settings.globalBackgroundImagePath;
         final hasBackgroundImage =
-            selectedWheel?.backgroundImagePath?.isNotEmpty == true;
+            controller.settings.globalBackgroundImageEnabled &&
+            globalBackgroundPath?.isNotEmpty == true;
         final palette = selectedWheel?.palette ?? 'random';
         final wheelViewport =
             controller.wheelViewportStateForWheel(controller.selectedWheelId) ??
@@ -96,226 +141,195 @@ class _HomeShellState extends State<HomeShell> {
               sliceSheenIntensity: 1.0,
               sliceDepthIntensity: 1.0,
             );
-        final orbColors = _paletteBackdropOrbColors(palette, isDark);
+        final orbColors = paletteBackdropOrbColors(palette, isDark);
         final canOpenDrawer = _currentPage == 0 && !controller.busy;
-        return Scaffold(
-          key: _scaffoldKey,
-          drawerEnableOpenDragGesture: canOpenDrawer,
-          drawerEdgeDragWidth: canOpenDrawer ? 84 : null,
-          drawerScrimColor: Colors.black.withValues(
-            alpha: isDark ? 0.22 : 0.12,
-          ),
-          drawer: _WheelDrawer(
-            wheels: controller.wheels,
-            selectedWheelId: controller.selectedWheelId,
-            selectedMode: controller.selectedDisplayMode,
-            accentColor: _paletteDrawerAccentColor(palette, isDark),
-            title: l10n.wheels,
-            modeLabel: l10n.drawMode,
-            emptyLabel: l10n.noWheelsYet,
-            onSelectWheel: (wheelId) {
-              controller.selectWheel(wheelId);
-            },
-            onSelectMode: (mode) => controller.setSelectedDisplayMode(mode),
-          ),
-          body: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: isDark
-                    ? const [
-                        Color(0xFF080A12),
-                        Color(0xFF0D1020),
-                        Color(0xFF0B0C10),
-                      ]
-                    : const [
-                        Color(0xFFF9FBFF),
-                        Color(0xFFF2F5FF),
-                        Color(0xFFEFF2F8),
-                      ],
-              ),
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) {
+              return;
+            }
+            unawaited(_handleBackNavigationRequest());
+          },
+          child: Scaffold(
+            key: _scaffoldKey,
+            drawerEnableOpenDragGesture: canOpenDrawer,
+            drawerEdgeDragWidth: canOpenDrawer ? 84 : null,
+            drawerScrimColor: Colors.black.withValues(
+              alpha: isDark ? 0.22 : 0.12,
             ),
-            child: Stack(
-              children: [
-                if (!hasBackgroundImage)
-                  Positioned.fill(
-                    child: ValueListenableBuilder<int>(
-                      valueListenable: controller.wheelViewportRevision,
-                      builder: (context, _, _) {
-                        final syncEnabled =
-                            _currentPage == 0 &&
-                            controller.selectedDisplayMode ==
-                                DrawDisplayMode.wheel;
-                        final liveViewport = controller
-                            .wheelViewportStateForWheel(
-                              controller.selectedWheelId,
-                            );
-                        return _BackgroundOrbLayer(
-                          topRightJitter: _orbJitterTopRight,
-                          bottomLeftJitter: _orbJitterBottomLeft,
-                          orbColors: orbColors,
-                          viewportState: syncEnabled ? liveViewport : null,
-                        );
-                      },
-                    ),
-                  ),
-                if (selectedWheel?.backgroundImagePath != null)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Opacity(
-                        opacity: selectedWheel!.backgroundImageOpacity.clamp(
-                          0.0,
-                          1.0,
-                        ),
-                        child: ImageFiltered(
-                          imageFilter: ImageFilter.blur(
-                            sigmaX: selectedWheel.backgroundImageBlurSigma,
-                            sigmaY: selectedWheel.backgroundImageBlurSigma,
-                          ),
-                          child: Image.file(
-                            File(selectedWheel.backgroundImagePath!),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                SafeArea(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: ValueListenableBuilder<int>(
-                            valueListenable: controller.wheelViewportRevision,
-                            builder: (context, _, _) {
-                              final liveViewport =
-                                  controller.wheelViewportStateForWheel(
-                                    controller.selectedWheelId,
-                                  ) ??
-                                  wheelViewport;
-                              return AnimatedBuilder(
-                                animation: _pageController,
-                                builder: (context, _) {
-                                  final pagePosition =
-                                      _pageController.hasClients
-                                      ? (_pageController.page ??
-                                            _currentPage.toDouble())
-                                      : _currentPage.toDouble();
-                                  return _WheelCarryoverLayer(
-                                    wheel:
-                                        controller.selectedDisplayMode ==
-                                            DrawDisplayMode.wheel
-                                        ? controller.selectedWheel
-                                        : null,
-                                    winnerItemId: controller.winnerItemId,
-                                    viewportState: liveViewport,
-                                    palette: palette,
-                                    isDark: isDark,
-                                    pagePosition: pagePosition,
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      PageView(
-                        controller: _pageController,
-                        physics: controller.busy
-                            ? const NeverScrollableScrollPhysics()
-                            : const BouncingScrollPhysics(),
-                        onPageChanged: (value) => setState(() {
-                          _currentPage = value;
-                        }),
-                        children: [
-                          DrawModePage(onOpenManage: _goToManagePage),
-                          const ManagePage(),
+            drawer: _WheelDrawer(
+              wheels: controller.wheels,
+              selectedWheelId: controller.selectedWheelId,
+              selectedMode: controller.selectedDisplayMode,
+              accentColor: paletteAccentColor(palette, isDark),
+              title: l10n.wheels,
+              modeLabel: l10n.drawMode,
+              emptyLabel: l10n.noWheelsYet,
+              onSelectWheel: (wheelId) {
+                controller.selectWheel(wheelId);
+              },
+              onSelectMode: (mode) => controller.setSelectedDisplayMode(mode),
+            ),
+            body: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: isDark
+                      ? const [
+                          Color(0xFF080A12),
+                          Color(0xFF0D1020),
+                          Color(0xFF0B0C10),
+                        ]
+                      : const [
+                          Color(0xFFF9FBFF),
+                          Color(0xFFF2F5FF),
+                          Color(0xFFEFF2F8),
                         ],
+                ),
+              ),
+              child: Stack(
+                children: [
+                  if (!hasBackgroundImage)
+                    Positioned.fill(
+                      child: ValueListenableBuilder<int>(
+                        valueListenable: controller.wheelViewportRevision,
+                        builder: (context, _, _) {
+                          final syncEnabled =
+                              _currentPage == 0 &&
+                              controller.selectedDisplayMode ==
+                                  DrawDisplayMode.wheel;
+                          final liveViewport = controller
+                              .wheelViewportStateForWheel(
+                                controller.selectedWheelId,
+                              );
+                          return _BackgroundOrbLayer(
+                            topRightJitter: _orbJitterTopRight,
+                            orbColors: orbColors,
+                            viewportState: syncEnabled ? liveViewport : null,
+                          );
+                        },
                       ),
-                      Positioned(
-                        bottom: 12,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: IgnorePointer(
-                            child: PageDots(
-                              count: 2,
-                              activeIndex: _currentPage,
+                    ),
+                  if (hasBackgroundImage && globalBackgroundPath != null)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Opacity(
+                          opacity: controller
+                              .settings
+                              .globalBackgroundImageOpacity
+                              .clamp(0.0, 1.0),
+                          child: ImageFiltered(
+                            imageFilter: ImageFilter.blur(
+                              sigmaX: controller
+                                  .settings
+                                  .globalBackgroundImageBlurSigma,
+                              sigmaY: controller
+                                  .settings
+                                  .globalBackgroundImageBlurSigma,
+                            ),
+                            child: Image.file(
+                              File(globalBackgroundPath),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) =>
+                                  const SizedBox.shrink(),
                             ),
                           ),
                         ),
                       ),
-                      if (canOpenDrawer)
-                        Positioned(
-                          left: 0,
-                          top: 0,
-                          bottom: 0,
-                          width: 28,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onHorizontalDragUpdate: (details) {
-                              final delta = details.primaryDelta ?? 0;
-                              if (delta > 7) {
-                                _openDrawer();
-                              }
-                            },
+                    ),
+                  SafeArea(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: ValueListenableBuilder<int>(
+                              valueListenable: controller.wheelViewportRevision,
+                              builder: (context, _, _) {
+                                final liveViewport =
+                                    controller.wheelViewportStateForWheel(
+                                      controller.selectedWheelId,
+                                    ) ??
+                                    wheelViewport;
+                                return AnimatedBuilder(
+                                  animation: _pageController,
+                                  builder: (context, _) {
+                                    final pagePosition =
+                                        _pageController.hasClients
+                                        ? (_pageController.page ??
+                                              _currentPage.toDouble())
+                                        : _currentPage.toDouble();
+                                    return _WheelCarryoverLayer(
+                                      wheel:
+                                          controller.selectedDisplayMode ==
+                                              DrawDisplayMode.wheel
+                                          ? controller.selectedWheel
+                                          : null,
+                                      winnerItemId: controller.winnerItemId,
+                                      viewportState: liveViewport,
+                                      palette: palette,
+                                      isDark: isDark,
+                                      pagePosition: pagePosition,
+                                    );
+                                  },
+                                );
+                              },
+                            ),
                           ),
                         ),
-                    ],
+                        PageView(
+                          controller: _pageController,
+                          physics: controller.busy
+                              ? const NeverScrollableScrollPhysics()
+                              : const BouncingScrollPhysics(),
+                          onPageChanged: (value) => setState(() {
+                            _currentPage = value;
+                          }),
+                          children: [
+                            DrawModePage(onOpenManage: _goToManagePage),
+                            const ManagePage(),
+                          ],
+                        ),
+                        Positioned(
+                          bottom: 12,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: IgnorePointer(
+                              child: PageDots(
+                                count: 2,
+                                activeIndex: _currentPage,
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (canOpenDrawer)
+                          Positioned(
+                            left: 0,
+                            top: 0,
+                            bottom: 0,
+                            width: 28,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onHorizontalDragUpdate: (details) {
+                                final delta = details.primaryDelta ?? 0;
+                                if (delta > 7) {
+                                  _openDrawer();
+                                }
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
       },
     );
-  }
-
-  List<Color> _paletteBackdropOrbColors(String palette, bool isDark) {
-    return switch (palette) {
-      'random' =>
-        isDark
-            ? [const Color(0x336B8BFF), const Color(0x3345D9C8)]
-            : [const Color(0x557A95FF), const Color(0x5558DCCF)],
-      'ocean' =>
-        isDark
-            ? [const Color(0x334EB7FF), const Color(0x3336D9C9)]
-            : [const Color(0x5562B9FF), const Color(0x5554DACD)],
-      'sunset' =>
-        isDark
-            ? [const Color(0x33FF915F), const Color(0x33FF4F89)]
-            : [const Color(0x55FF9868), const Color(0x55FF679D)],
-      'mint' =>
-        isDark
-            ? [const Color(0x3357E1C1), const Color(0x334EC4F2)]
-            : [const Color(0x5561DEC6), const Color(0x5569CCF7)],
-      'mono' =>
-        isDark
-            ? [const Color(0x337D879A), const Color(0x33666F80)]
-            : [const Color(0x559AA3B0), const Color(0x55B3BBC8)],
-      'pink' =>
-        isDark
-            ? [const Color(0x33FF74B5), const Color(0x339889FF)]
-            : [const Color(0x55FF93C6), const Color(0x55B7A3FF)],
-      _ =>
-        isDark
-            ? [const Color(0x336B8BFF), const Color(0x3345D9C8)]
-            : [const Color(0x557A95FF), const Color(0x5558DCCF)],
-    };
-  }
-
-  Color _paletteDrawerAccentColor(String palette, bool isDark) {
-    return switch (palette) {
-      'random' => isDark ? const Color(0xFFBFA3FF) : const Color(0xFF7367F0),
-      'ocean' => isDark ? const Color(0xFF71C5FF) : const Color(0xFF2188F6),
-      'sunset' => isDark ? const Color(0xFFFFA36E) : const Color(0xFFEE6C2B),
-      'mint' => isDark ? const Color(0xFF7DE4CA) : const Color(0xFF16B38A),
-      'mono' => isDark ? const Color(0xFF9EA7B4) : const Color(0xFF6F7783),
-      'pink' => isDark ? const Color(0xFFFFA3C8) : const Color(0xFFFF8AB6),
-      _ => isDark ? const Color(0xFF9AB4FF) : const Color(0xFF4E6BDB),
-    };
   }
 }
 
@@ -697,7 +711,7 @@ class _WheelCarryoverLayer extends StatelessWidget {
     }
     final carryProgress = pagePosition.clamp(-0.35, 1.0);
     final scale = viewport.scale.clamp(1.0, WheelUiTuning.wheelMaxScale);
-    final glowColors = _paletteWheelGlowColors(palette, isDark);
+    final glowColors = paletteGlowColors(palette, isDark);
     return LayoutBuilder(
       builder: (context, constraints) {
         final pageWidth = constraints.maxWidth;
@@ -724,56 +738,58 @@ class _WheelCarryoverLayer extends StatelessWidget {
                         child: SizedBox(
                           width: wheelSize,
                           height: wheelSize,
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Positioned.fill(
-                                child: _CarryoverGlowSource(
-                                  size: wheelSize,
-                                  alignment: Alignment(
-                                    viewport.glowAx,
-                                    viewport.glowAy,
+                          child: ClipOval(
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Positioned.fill(
+                                  child: _CarryoverGlowSource(
+                                    size: wheelSize,
+                                    alignment: Alignment(
+                                      viewport.glowAx,
+                                      viewport.glowAy,
+                                    ),
+                                    color: glowColors[0],
+                                    radiusFactor: viewport.glowScaleA,
+                                    isDark: isDark,
+                                    tilt: -0.28,
                                   ),
-                                  color: glowColors[0],
-                                  radiusFactor: viewport.glowScaleA,
-                                  isDark: isDark,
-                                  tilt: -0.28,
                                 ),
-                              ),
-                              Positioned.fill(
-                                child: _CarryoverGlowSource(
-                                  size: wheelSize,
-                                  alignment: Alignment(
-                                    viewport.glowBx,
-                                    viewport.glowBy,
+                                Positioned.fill(
+                                  child: _CarryoverGlowSource(
+                                    size: wheelSize,
+                                    alignment: Alignment(
+                                      viewport.glowBx,
+                                      viewport.glowBy,
+                                    ),
+                                    color: glowColors[1],
+                                    radiusFactor: viewport.glowScaleB,
+                                    isDark: isDark,
+                                    tilt: 0.42,
                                   ),
-                                  color: glowColors[1],
-                                  radiusFactor: viewport.glowScaleB,
-                                  isDark: isDark,
-                                  tilt: 0.42,
                                 ),
-                              ),
-                              WheelCanvas(
-                                wheel: currentWheel,
-                                rotation: viewport.rotation,
-                                winnerItemId: winnerItemId,
-                                onTapSlice: (_) {},
-                                enabled: false,
-                                detailScale: scale,
-                                materialSheenCenter: Alignment(
-                                  viewport.sliceSheenX,
-                                  viewport.sliceSheenY,
+                                WheelCanvas(
+                                  wheel: currentWheel,
+                                  rotation: viewport.rotation,
+                                  winnerItemId: winnerItemId,
+                                  onTapSlice: (_) {},
+                                  enabled: false,
+                                  detailScale: scale,
+                                  materialSheenCenter: Alignment(
+                                    viewport.sliceSheenX,
+                                    viewport.sliceSheenY,
+                                  ),
+                                  materialDepthCenter: Alignment(
+                                    viewport.sliceDepthX,
+                                    viewport.sliceDepthY,
+                                  ),
+                                  materialSheenIntensity:
+                                      viewport.sliceSheenIntensity,
+                                  materialDepthIntensity:
+                                      viewport.sliceDepthIntensity,
                                 ),
-                                materialDepthCenter: Alignment(
-                                  viewport.sliceDepthX,
-                                  viewport.sliceDepthY,
-                                ),
-                                materialSheenIntensity:
-                                    viewport.sliceSheenIntensity,
-                                materialDepthIntensity:
-                                    viewport.sliceDepthIntensity,
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -821,40 +837,33 @@ class _CarryoverGlowSource extends StatelessWidget {
             alignment: Alignment.center,
             children: [
               Container(
-                width: size * radiusFactor * 1.16,
-                height: size * radiusFactor * 1.16,
+                width: size * radiusFactor * 1.02,
+                height: size * radiusFactor * 1.02,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      color.withValues(alpha: isDark ? 0.34 : 0.18),
-                      color.withValues(alpha: isDark ? 0.12 : 0.06),
+                      color.withValues(alpha: isDark ? 0.24 : 0.12),
+                      color.withValues(alpha: isDark ? 0.08 : 0.04),
                       color.withValues(alpha: 0),
                     ],
-                    stops: const [0.0, 0.45, 1.0],
+                    stops: const [0.0, 0.52, 1.0],
                   ),
                 ),
               ),
               Container(
-                width: size * radiusFactor * 0.78,
-                height: size * radiusFactor * 0.78,
+                width: size * radiusFactor * 0.72,
+                height: size * radiusFactor * 0.72,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      color.withValues(alpha: isDark ? 0.56 : 0.3),
-                      color.withValues(alpha: isDark ? 0.24 : 0.12),
+                      color.withValues(alpha: isDark ? 0.44 : 0.24),
+                      color.withValues(alpha: isDark ? 0.16 : 0.08),
                       color.withValues(alpha: 0),
                     ],
-                    stops: const [0.0, 0.32, 1.0],
+                    stops: const [0.0, 0.4, 1.0],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withValues(alpha: isDark ? 0.46 : 0.2),
-                      blurRadius: size * 0.11,
-                      spreadRadius: size * 0.008,
-                    ),
-                  ],
                 ),
               ),
             ],
@@ -865,49 +874,14 @@ class _CarryoverGlowSource extends StatelessWidget {
   }
 }
 
-List<Color> _paletteWheelGlowColors(String palette, bool isDark) {
-  return switch (palette) {
-    'random' =>
-      isDark
-          ? [const Color(0xFF9E8BFF), const Color(0xFF54AFFF)]
-          : [const Color(0xFF7A6CF4), const Color(0xFF3E8EF9)],
-    'ocean' =>
-      isDark
-          ? [const Color(0xFF53B8FF), const Color(0xFF35D7C8)]
-          : [const Color(0xFF2A96FF), const Color(0xFF2CCFBA)],
-    'sunset' =>
-      isDark
-          ? [const Color(0xFFFF9B65), const Color(0xFFFF5A86)]
-          : [const Color(0xFFF57A38), const Color(0xFFEC4E6F)],
-    'mint' =>
-      isDark
-          ? [const Color(0xFF59DFC1), const Color(0xFF5CCBF7)]
-          : [const Color(0xFF26C8A0), const Color(0xFF3AAAE8)],
-    'mono' =>
-      isDark
-          ? [const Color(0xFF8D97A7), const Color(0xFF6B7585)]
-          : [const Color(0xFF858E9A), const Color(0xFFA8B0BC)],
-    'pink' =>
-      isDark
-          ? [const Color(0xFFFF79BA), const Color(0xFFAD8DFF)]
-          : [const Color(0xFFFF63AE), const Color(0xFFC29CFF)],
-    _ =>
-      isDark
-          ? [const Color(0xFF9AB4FF), const Color(0xFF6FA0FF)]
-          : [const Color(0xFF4E6BDB), const Color(0xFF3F8AF1)],
-  };
-}
-
 class _BackgroundOrbLayer extends StatelessWidget {
   const _BackgroundOrbLayer({
     required this.topRightJitter,
-    required this.bottomLeftJitter,
     required this.orbColors,
     required this.viewportState,
   });
 
   final Offset topRightJitter;
-  final Offset bottomLeftJitter;
   final List<Color> orbColors;
   final WheelViewportState? viewportState;
 
@@ -934,13 +908,9 @@ class _BackgroundOrbLayer extends StatelessWidget {
                 child: _BackgroundOrb(size: 200, color: orbColors[0]),
               ),
               Positioned(
-                bottom: 78 + bottomLeftJitter.dy,
-                left: -50 + bottomLeftJitter.dx,
-                child: _BackgroundOrb(
-                  size: 150,
-                  color: orbColors[1],
-                  edgeTightness: 0.3,
-                ),
+                bottom: -96 + topRightJitter.dy * 0.35,
+                left: -72 - topRightJitter.dx * 0.25,
+                child: _BackgroundOrb(size: 236, color: orbColors[1]),
               ),
             ],
           ),
@@ -951,36 +921,20 @@ class _BackgroundOrbLayer extends StatelessWidget {
 }
 
 class _BackgroundOrb extends StatelessWidget {
-  const _BackgroundOrb({
-    required this.size,
-    required this.color,
-    this.edgeTightness = 0,
-  });
+  const _BackgroundOrb({required this.size, required this.color});
 
   final double size;
   final Color color;
-  final double edgeTightness;
 
   @override
   Widget build(BuildContext context) {
-    final tightness = edgeTightness.clamp(0.0, 1.0);
-    final useSharperEdge = tightness > 0;
     return IgnorePointer(
       child: Container(
         width: size,
         height: size,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          gradient: useSharperEdge
-              ? RadialGradient(
-                  colors: [
-                    color,
-                    color.withValues(alpha: color.a * (0.42 + tightness * 0.2)),
-                    color.withValues(alpha: 0),
-                  ],
-                  stops: [0.0, 0.68 + tightness * 0.18, 1.0],
-                )
-              : RadialGradient(colors: [color, color.withValues(alpha: 0)]),
+          gradient: RadialGradient(colors: [color, color.withValues(alpha: 0)]),
         ),
       ),
     );
