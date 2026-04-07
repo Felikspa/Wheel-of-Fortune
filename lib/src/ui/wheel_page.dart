@@ -13,6 +13,7 @@ import '../services/spin_engine.dart';
 import '../state/app_controller.dart';
 import 'palette_tokens.dart';
 import 'widgets/liquid_glass_chrome.dart';
+import 'widgets/wheel_canvas.dart';
 import 'wheel_ui_tuning.dart';
 
 class WheelPage extends StatefulWidget {
@@ -67,16 +68,13 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
   bool _edgeBrakeActive = false;
   bool _spinRunning = false;
   bool _spinTargeted = false;
+  bool _spinUserIntervened = false;
   double _spinAngularVelocity = 0;
   double _spinInitialVelocity = 0;
   Duration _spinLastElapsed = Duration.zero;
   AppController? _spinController;
   WheelModel? _spinWheel;
   SpinOutcome? _targetSpinOutcome;
-  double _targetSpinStart = 0;
-  double _targetSpinEnd = 0;
-  double _targetSpinDurationSec = 0;
-  double _targetSpinElapsedSec = 0;
   bool _showSpinSpeedHud = false;
   double _lastSpinSpeedRpm = 0;
   double _spinInstabilityPhase = 0;
@@ -172,6 +170,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
         final winner = controller.winnerItem;
         final colorlessGlass = wheel.palette == 'transparent';
         final accentColor = paletteAccentColor(wheel.palette, isDark);
+        final glowColors = paletteGlowColors(wheel.palette, isDark);
         final onAccentColor = accentColor.computeLuminance() > 0.45
             ? Colors.black
             : Colors.white;
@@ -244,7 +243,61 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
                             child: SizedBox(
                               width: wheelSize,
                               height: wheelSize,
-                              child: const SizedBox.expand(),
+                              child: RepaintBoundary(
+                                child: Transform.translate(
+                                  offset: _spinInstabilityTranslation,
+                                  child: Stack(
+                                    alignment: Alignment.center,
+                                    children: [
+                                      Positioned.fill(
+                                        child: _buildGlowSource(
+                                          size: wheelSize,
+                                          alignment: Alignment(
+                                            _glowAlignmentA.x + _glowJitterA.dx,
+                                            _glowAlignmentA.y + _glowJitterA.dy,
+                                          ),
+                                          color: glowColors[0],
+                                          radiusFactor: _glowScaleA,
+                                          isDark: isDark,
+                                          tilt: -0.28,
+                                        ),
+                                      ),
+                                      Positioned.fill(
+                                        child: _buildGlowSource(
+                                          size: wheelSize,
+                                          alignment: Alignment(
+                                            _glowAlignmentB.x + _glowJitterB.dx,
+                                            _glowAlignmentB.y + _glowJitterB.dy,
+                                          ),
+                                          color: glowColors[1],
+                                          radiusFactor: _glowScaleB,
+                                          isDark: isDark,
+                                          tilt: 0.42,
+                                        ),
+                                      ),
+                                      WheelCanvas(
+                                        wheel: wheel,
+                                        rotation:
+                                            _rotation +
+                                            _spinInstabilityRotationOffset,
+                                        winnerItemId: controller.winnerItemId,
+                                        enabled: !controller.spinning,
+                                        detailScale: _wheelDetailScale,
+                                        materialSheenCenter: _sliceSheenCenter,
+                                        materialDepthCenter: _sliceDepthCenter,
+                                        materialSheenIntensity:
+                                            _sliceSheenIntensity,
+                                        materialDepthIntensity:
+                                            _sliceDepthIntensity,
+                                        onTapSlice: (index) => _showItemDetails(
+                                          context,
+                                          wheel.items[index],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -449,7 +502,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     if (outcome == null) {
       return;
     }
-    _startTargetedSpin(controller: controller, wheel: wheel, outcome: outcome);
+    _startTargetedSpin(controller: controller, outcome: outcome);
   }
 
   Future<void> _showItemDetails(BuildContext context, WheelItemModel item) {
@@ -672,28 +725,14 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     final impulse =
         angularVelocity.abs() * WheelUiTuning.freeSpinFlickImpulseFactor;
     if (_spinTargeted) {
-      final intensity =
-          (angularVelocity.abs() / WheelUiTuning.freeSpinAngularVelocityClamp)
-              .clamp(0.05, 1.0);
-      if (sameDirection) {
-        final speedup =
-            1 + intensity * WheelUiTuning.targetSpinFlickAccelFactor;
-        _targetSpinDurationSec = max(
-          WheelUiTuning.targetSpinMinDurationSeconds,
-          _targetSpinDurationSec / speedup,
-        );
-      } else {
-        final slowdown =
-            1 + intensity * WheelUiTuning.targetSpinFlickDecelFactor;
-        _targetSpinDurationSec = (_targetSpinDurationSec * slowdown).clamp(
-          WheelUiTuning.targetSpinMinDurationSeconds,
-          WheelUiTuning.targetSpinMaxDurationSeconds,
-        );
-      }
       final tunedVelocity = sameDirection
           ? (_spinAngularVelocity.abs() + impulse * 0.63)
           : max(0.0, _spinAngularVelocity.abs() - impulse * 0.45);
-      _spinAngularVelocity = direction * tunedVelocity;
+      _spinTargeted = false;
+      _spinUserIntervened = true;
+      _spinAngularVelocity =
+          direction *
+          max(WheelUiTuning.freeSpinAngularVelocityMin, tunedVelocity);
     } else {
       final absCurrent = _spinAngularVelocity.abs();
       final tuned = sameDirection
@@ -744,7 +783,6 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
 
   void _startTargetedSpin({
     required AppController controller,
-    required WheelModel wheel,
     required SpinOutcome outcome,
   }) {
     if (_spinRunning) {
@@ -757,20 +795,21 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
       delta += 2 * pi;
     }
     _spinController = controller;
-    _spinWheel = wheel;
+    _spinWheel = controller.selectedWheel;
     _spinRunning = true;
     _spinTargeted = true;
+    _spinUserIntervened = false;
     _spinLastElapsed = Duration.zero;
-    _spinInitialVelocity = outcome.initialVelocity;
-    _spinAngularVelocity = outcome.initialVelocity;
-    _targetSpinOutcome = outcome;
-    _targetSpinStart = _baseRotation;
-    _targetSpinEnd = _baseRotation + delta;
-    _targetSpinDurationSec = max(
-      WheelUiTuning.targetSpinMinDurationSeconds,
-      wheel.spinDurationMs / 1000,
+    final targetDistance = max(0.0, delta);
+    final solvedInitialVelocity = _solveInitialVelocityForDistance(
+      targetDistance,
     );
-    _targetSpinElapsedSec = 0;
+    _spinInitialVelocity = max(
+      WheelUiTuning.freeSpinAngularVelocityMin,
+      solvedInitialVelocity,
+    );
+    _spinAngularVelocity = _spinInitialVelocity;
+    _targetSpinOutcome = outcome;
     _spinTicker.start();
     HapticFeedback.lightImpact();
   }
@@ -793,6 +832,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _spinWheel = wheel;
     _spinRunning = true;
     _spinTargeted = false;
+    _spinUserIntervened = false;
     _spinLastElapsed = Duration.zero;
     _spinAngularVelocity = angularVelocity;
     if (_spinAngularVelocity.abs() < WheelUiTuning.freeSpinAngularVelocityMin) {
@@ -828,39 +868,13 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
       return;
     }
 
-    if (_spinTargeted) {
-      final speedScale = _edgeBrakeActive
-          ? (WheelUiTuning.targetSpinBrakeSpeedScale +
-                    (_spinAngularVelocity.abs() *
-                            WheelUiTuning.targetSpinBrakeVelocityScaleGain)
-                        .clamp(0.0, WheelUiTuning.targetSpinBrakeSpeedScaleMax))
-                .clamp(1.0, WheelUiTuning.targetSpinBrakeSpeedScaleMax)
-                .toDouble()
-          : 1.0;
-      _targetSpinElapsedSec += dt * speedScale;
-      final t = (_targetSpinElapsedSec / _targetSpinDurationSec).clamp(
-        0.0,
-        1.0,
-      );
-      final eased = Curves.easeOutCubic.transform(t);
-      final nextRotation =
-          _targetSpinStart + (_targetSpinEnd - _targetSpinStart) * eased;
-      _spinAngularVelocity = (nextRotation - _rotation) / dt;
-      _rotation = nextRotation;
-      _updateSpinInstability(dt: dt);
-      _syncSpinSpeedHud();
-      _cacheCurrentWheelViewportIfPossible();
-      setState(() {});
-      if (t >= 1.0) {
-        _finalizeSpin(controller: controller, fixedOutcome: _targetSpinOutcome);
-      }
-      return;
-    }
-
     _updateSpinInstability(dt: dt);
     final absVelocity = _spinAngularVelocity.abs();
     if (absVelocity <= 0.01) {
-      _finalizeSpin(controller: controller);
+      _finalizeSpin(
+        controller: controller,
+        fixedOutcome: _spinUserIntervened ? null : _targetSpinOutcome,
+      );
       return;
     }
     final friction = _edgeBrakeActive
@@ -884,7 +898,10 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     setState(() {});
 
     if (nextAbsVelocity <= WheelUiTuning.freeSpinStopVelocity) {
-      _finalizeSpin(controller: controller);
+      _finalizeSpin(
+        controller: controller,
+        fixedOutcome: _spinUserIntervened ? null : _targetSpinOutcome,
+      );
     }
   }
 
@@ -917,6 +934,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _spinTicker.stop();
     _spinRunning = false;
     _spinTargeted = false;
+    _spinUserIntervened = false;
     _setEdgeBrakeActive(false);
     _spinLastElapsed = Duration.zero;
     _spinAngularVelocity = 0;
@@ -961,6 +979,43 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     );
   }
 
+  double _solveInitialVelocityForDistance(double targetDistance) {
+    if (targetDistance <= 0) {
+      return WheelUiTuning.freeSpinAngularVelocityMin;
+    }
+    var low = WheelUiTuning.freeSpinStopVelocity;
+    var high = max(low * 2, 32.0);
+    while (_distanceUntilStop(high) < targetDistance) {
+      high *= 1.7;
+      if (high > 10000) {
+        break;
+      }
+    }
+    for (var i = 0; i < 44; i++) {
+      final mid = (low + high) * 0.5;
+      final distance = _distanceUntilStop(mid);
+      if (distance < targetDistance) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+    }
+    return high;
+  }
+
+  double _distanceUntilStop(double initialVelocity) {
+    final b = WheelUiTuning.freeSpinBaseFriction;
+    final k = WheelUiTuning.freeSpinNaturalVelocityFrictionGain;
+    final stop = WheelUiTuning.freeSpinStopVelocity;
+    final termA = (initialVelocity - stop) / k;
+    final ratio = ((initialVelocity + (b / k)) / (stop + (b / k))).clamp(
+      1.0,
+      double.infinity,
+    );
+    final termB = (b / (k * k)) * log(ratio);
+    return max(0.0, termA - termB);
+  }
+
   double _normalizeRotation(double value) {
     var result = value % (2 * pi);
     if (result < 0) {
@@ -986,6 +1041,7 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     _spinTicker.stop();
     _spinRunning = false;
     _spinTargeted = false;
+    _spinUserIntervened = false;
     _setEdgeBrakeActive(false);
     _spinLastElapsed = Duration.zero;
     _spinAngularVelocity = 0;
@@ -1453,6 +1509,69 @@ class _WheelPageState extends State<WheelPage> with TickerProviderStateMixin {
     final speed = _spinRunning ? _currentSpinSpeedRpm : _lastSpinSpeedRpm;
     final rpmText = speed.toStringAsFixed(1);
     return '$rpmText RPM';
+  }
+
+  Widget _buildGlowSource({
+    required double size,
+    required Alignment alignment,
+    required Color color,
+    required double radiusFactor,
+    required bool isDark,
+    required double tilt,
+  }) {
+    return IgnorePointer(
+      child: Align(
+        alignment: alignment,
+        child: Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..rotateZ(tilt)
+            ..multiply(Matrix4.diagonal3Values(1.0, isDark ? 0.88 : 0.92, 1.0)),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: size * radiusFactor * 1.16,
+                height: size * radiusFactor * 1.16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      color.withValues(alpha: isDark ? 0.34 : 0.18),
+                      color.withValues(alpha: isDark ? 0.12 : 0.06),
+                      color.withValues(alpha: 0.0),
+                    ],
+                    stops: const [0.0, 0.45, 1.0],
+                  ),
+                ),
+              ),
+              Container(
+                width: size * radiusFactor * 0.78,
+                height: size * radiusFactor * 0.78,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      color.withValues(alpha: isDark ? 0.56 : 0.3),
+                      color.withValues(alpha: isDark ? 0.24 : 0.12),
+                      color.withValues(alpha: 0.0),
+                    ],
+                    stops: const [0.0, 0.32, 1.0],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: isDark ? 0.46 : 0.2),
+                      blurRadius: size * 0.11,
+                      spreadRadius: size * 0.008,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   static const List<String> _funHintsZh = [

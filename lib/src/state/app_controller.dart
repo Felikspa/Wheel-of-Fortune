@@ -489,6 +489,7 @@ class AppController extends ChangeNotifier {
     final result = _spinEngine.spin(
       wheel.items,
       wheel.probabilityMode,
+      spinDurationMs: wheel.spinDurationMs,
       recentWinnerItemIds: _recentWinnerIdsByWheel[wheel.id] ?? const [],
     );
     notifyListeners();

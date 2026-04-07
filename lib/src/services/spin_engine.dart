@@ -19,11 +19,16 @@ class SpinOutcome {
 class SpinEngine {
   static const int _softWindowSize = 8;
   static const double _softPenaltyAlpha = 1.15;
+  static const double _freeSpinBaseFriction = 4.0;
+  static const double _freeSpinNaturalVelocityFrictionGain = 0.24;
+  static const double _freeSpinStopVelocity = 0.16;
+  static const double _minDurationSeconds = 0.18;
 
   SpinOutcome spin(
     List<WheelItemModel> items,
     ProbabilityMode mode, {
     Random? random,
+    int? spinDurationMs,
     List<int> recentWinnerItemIds = const [],
   }) {
     final rng = random ?? Random();
@@ -42,15 +47,44 @@ class SpinEngine {
     final randomOffsetInWedge =
         edgeSafeMargin + (rng.nextDouble() * (wedgeAngle - 2 * edgeSafeMargin));
     final landingAngle = (winnerIndex * wedgeAngle) + randomOffsetInWedge;
-    final turns = 6 + rng.nextInt(4);
+    final durationSec = max(
+      _minDurationSeconds,
+      (spinDurationMs ?? 4800) / 1000,
+    );
+    final initialVelocity = _initialVelocityForDuration(durationSec);
+    final naturalDistance = _distanceUntilStop(initialVelocity);
+    final turns = max(2, ((naturalDistance + landingAngle) / (2 * pi)).round());
     final targetDelta = (turns * 2 * pi) - landingAngle;
 
     return SpinOutcome(
       winnerIndex: winnerIndex,
       winnerItemId: items[winnerIndex].id,
       targetDelta: targetDelta,
-      initialVelocity: 12 + (rng.nextDouble() * 8),
+      initialVelocity: initialVelocity,
     );
+  }
+
+  double _initialVelocityForDuration(double durationSec) {
+    final b = _freeSpinBaseFriction;
+    final k = _freeSpinNaturalVelocityFrictionGain;
+    final stop = _freeSpinStopVelocity;
+    return (((b + (k * stop)) * exp(k * durationSec)) - b) / k;
+  }
+
+  double _distanceUntilStop(double initialVelocity) {
+    final b = _freeSpinBaseFriction;
+    final k = _freeSpinNaturalVelocityFrictionGain;
+    final stop = _freeSpinStopVelocity;
+    final termA = (initialVelocity - stop) / k;
+    final termB =
+        (b / (k * k)) *
+        log(
+          ((initialVelocity + (b / k)) / (stop + (b / k))).clamp(
+            1.0,
+            double.infinity,
+          ),
+        );
+    return max(0.0, termA - termB);
   }
 
   int _chooseSoftAntiRepeatIndex(

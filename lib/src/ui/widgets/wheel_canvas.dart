@@ -404,10 +404,10 @@ class _WheelPainter extends CustomPainter {
         radius: 0.86,
         colors: [
           Colors.white.withValues(
-            alpha: (isDark ? 0.08 : 0.16) * clampedSheenIntensity,
+            alpha: (isDark ? 0.065 : 0.13) * clampedSheenIntensity,
           ),
           Colors.white.withValues(
-            alpha: (isDark ? 0.02 : 0.06) * clampedSheenIntensity,
+            alpha: (isDark ? 0.016 : 0.05) * clampedSheenIntensity,
           ),
           Colors.transparent,
         ],
@@ -420,7 +420,7 @@ class _WheelPainter extends CustomPainter {
         colors: [
           Colors.transparent,
           Colors.black.withValues(
-            alpha: (isDark ? 0.04 : 0.028) * clampedDepthIntensity,
+            alpha: (isDark ? 0.032 : 0.022) * clampedDepthIntensity,
           ),
         ],
         stops: const [0.62, 1.0],
@@ -438,10 +438,10 @@ class _WheelPainter extends CustomPainter {
         ),
         colors: [
           Colors.white.withValues(
-            alpha: (isDark ? 0.08 : 0.12) * clampedSheenIntensity,
+            alpha: (isDark ? 0.064 : 0.096) * clampedSheenIntensity,
           ),
           Colors.white.withValues(
-            alpha: (isDark ? 0.018 : 0.035) * clampedSheenIntensity,
+            alpha: (isDark ? 0.014 : 0.028) * clampedSheenIntensity,
           ),
           Colors.transparent,
         ],
@@ -449,7 +449,7 @@ class _WheelPainter extends CustomPainter {
       ).createShader(wheelRect);
     final baseSlicePaint = Paint();
     final glossPaint = Paint()
-      ..color = Colors.white.withValues(alpha: isDark ? 0.015 : 0.04)
+      ..color = Colors.white.withValues(alpha: isDark ? 0.012 : 0.032)
       ..style = PaintingStyle.fill;
     final highlightPaint = Paint()
       ..color = Colors.white.withValues(alpha: isDark ? 0.14 : 0.28);

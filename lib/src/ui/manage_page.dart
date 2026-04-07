@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
@@ -1295,6 +1297,8 @@ class _LoveSignatureGlass extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final usesPremiumPipeline =
+        !kIsWeb && ui.ImageFilter.isShaderFilterSupported;
     final textColor =
         theme.textTheme.labelLarge?.color ??
         (isDark ? Colors.white : Colors.black);
@@ -1320,49 +1324,351 @@ class _LoveSignatureGlass extends StatelessWidget {
             height: 42,
             useOwnLayer: true,
             quality: GlassQuality.premium,
-            shape: const LiquidRoundedRectangle(borderRadius: 0),
+            shape: const LiquidRoundedRectangle(borderRadius: 0.01),
             settings: LiquidGlassSettings(
-              thickness: isDark ? 50 : 50,
+              thickness: isDark ? 48 : 50,
               blur: 0,
-              glassColor: const Color(
-                0xFFC2185B,
-              ).withValues(alpha: isDark ? 0.09 : 0.09),
-              lightAngle: isDark ? 2.35 : 2.26,
-              lightIntensity: colorlessGlass ? 0 : (isDark ? 0.0 : 0.9),
-              ambientStrength: colorlessGlass ? 0 : (isDark ? 0.0 : 0.03),
-              refractiveIndex: 1.85,
-              saturation: 1.3,
-              chromaticAberration: 0.07,
+              glassColor: colorlessGlass
+                  ? Colors.transparent
+                  : Color.lerp(
+                      accentColor,
+                      const Color(0xFFEAF6FF),
+                      isDark ? 0.72 : 0.6,
+                    )!.withValues(alpha: isDark ? 0.06 : 0.055),
+              lightAngle: usesPremiumPipeline
+                  ? (isDark ? 2.18 : 2.12)
+                  : (isDark ? 125.0 : 121.5),
+              lightIntensity: colorlessGlass ? 0 : (isDark ? 0.42 : 0.84),
+              ambientStrength: colorlessGlass ? 0 : (isDark ? 0.016 : 0.042),
+              refractiveIndex: 1.86,
+              saturation: 1.1,
+              chromaticAberration: 0.012,
             ),
             interactionScale: 1.0,
             stretch: 0,
             resistance: 0.05,
             glowColor: colorlessGlass
                 ? Colors.white.withValues(alpha: 0)
-                : accentColor.withValues(alpha: isDark ? 0.03 : 0.03),
-            glowRadius: 1.05,
+                : accentColor.withValues(alpha: isDark ? 0.035 : 0.03),
+            glowRadius: 1.08,
             style: GlassButtonStyle.filled,
-            child: CustomPaint(
-              painter: _LoveSignatureGemPainter(
-                accentColor: accentColor,
-                isDark: isDark,
-                colorlessGlass: colorlessGlass,
-              ),
-              child: Center(
-                child: Text(
-                  'LJX & HLY',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    color: textColor.withValues(alpha: isDark ? 0.92 : 0.86),
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _GemFacetRefractionOverlays(
+                  accentColor: accentColor,
+                  isDark: isDark,
+                  colorlessGlass: colorlessGlass,
+                ),
+                CustomPaint(
+                  painter: _LoveSignatureGemPainter(
+                    accentColor: accentColor,
+                    isDark: isDark,
+                    colorlessGlass: colorlessGlass,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+                Center(
+                  child: _GemTableEngravedLabel(
+                    text: 'LJX & HLY',
+                    textColor: textColor,
+                    accentColor: accentColor,
+                    isDark: isDark,
+                    colorlessGlass: colorlessGlass,
+                    baseStyle: theme.textTheme.labelLarge,
                   ),
                 ),
-              ),
+              ],
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+enum _GemFacetKind { top, left, bottom, right, table }
+
+class _GemTableEngravedLabel extends StatelessWidget {
+  const _GemTableEngravedLabel({
+    required this.text,
+    required this.textColor,
+    required this.accentColor,
+    required this.isDark,
+    required this.colorlessGlass,
+    this.baseStyle,
+  });
+
+  final String text;
+  final Color textColor;
+  final Color accentColor;
+  final bool isDark;
+  final bool colorlessGlass;
+  final TextStyle? baseStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final mainColor = Color.lerp(
+      textColor.withValues(alpha: isDark ? 0.28 : 0.34),
+      colorlessGlass
+          ? Colors.white.withValues(alpha: 0.2)
+          : accentColor.withValues(alpha: isDark ? 0.15 : 0.12),
+      0.36,
+    )!;
+
+    final highlightColor = Colors.white.withValues(alpha: isDark ? 0.28 : 0.34);
+    final shadowColor = Colors.black.withValues(alpha: isDark ? 0.28 : 0.2);
+
+    final labelStyle = baseStyle?.copyWith(
+      color: mainColor,
+      fontWeight: FontWeight.w800,
+      letterSpacing: 0.45,
+    );
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Transform.translate(
+          offset: const Offset(0, -0.35),
+          child: Text(text, style: labelStyle?.copyWith(color: highlightColor)),
+        ),
+        Transform.translate(
+          offset: const Offset(0, 0.42),
+          child: Text(text, style: labelStyle?.copyWith(color: shadowColor)),
+        ),
+        Text(text, style: labelStyle),
+      ],
+    );
+  }
+}
+
+class _GemFacetRefractionOverlays extends StatelessWidget {
+  const _GemFacetRefractionOverlays({
+    required this.accentColor,
+    required this.isDark,
+    required this.colorlessGlass,
+  });
+
+  final Color accentColor;
+  final bool isDark;
+  final bool colorlessGlass;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          _GemFacetRefractionRegion(
+            kind: _GemFacetKind.top,
+            accentColor: accentColor,
+            isDark: isDark,
+            colorlessGlass: colorlessGlass,
+          ),
+          _GemFacetRefractionRegion(
+            kind: _GemFacetKind.left,
+            accentColor: accentColor,
+            isDark: isDark,
+            colorlessGlass: colorlessGlass,
+          ),
+          _GemFacetRefractionRegion(
+            kind: _GemFacetKind.bottom,
+            accentColor: accentColor,
+            isDark: isDark,
+            colorlessGlass: colorlessGlass,
+          ),
+          _GemFacetRefractionRegion(
+            kind: _GemFacetKind.right,
+            accentColor: accentColor,
+            isDark: isDark,
+            colorlessGlass: colorlessGlass,
+          ),
+          _GemFacetRefractionRegion(
+            kind: _GemFacetKind.table,
+            accentColor: accentColor,
+            isDark: isDark,
+            colorlessGlass: colorlessGlass,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GemFacetRefractionRegion extends StatelessWidget {
+  const _GemFacetRefractionRegion({
+    required this.kind,
+    required this.accentColor,
+    required this.isDark,
+    required this.colorlessGlass,
+  });
+
+  final _GemFacetKind kind;
+  final Color accentColor;
+  final bool isDark;
+  final bool colorlessGlass;
+
+  @override
+  Widget build(BuildContext context) {
+    final highlightTint = colorlessGlass
+        ? Colors.transparent
+        : Color.lerp(accentColor, const Color(0xFFEAF6FF), 0.78)!;
+
+    LiquidGlassSettings settingsForFacet() {
+      return switch (kind) {
+        _GemFacetKind.top => LiquidGlassSettings(
+          thickness: isDark ? 52 : 54,
+          blur: 0,
+          glassColor: highlightTint.withValues(alpha: isDark ? 0.012 : 0.01),
+          lightAngle: isDark ? 116.0 : 122.0,
+          lightIntensity: colorlessGlass ? 0 : (isDark ? 0.2 : 0.32),
+          ambientStrength: colorlessGlass ? 0 : (isDark ? 0.008 : 0.014),
+          refractiveIndex: 2.12,
+          saturation: 1.0,
+          chromaticAberration: 0,
+        ),
+        _GemFacetKind.left => LiquidGlassSettings(
+          thickness: isDark ? 50 : 52,
+          blur: 0,
+          glassColor: highlightTint.withValues(alpha: isDark ? 0.01 : 0.008),
+          lightAngle: isDark ? 178.0 : 184.0,
+          lightIntensity: colorlessGlass ? 0 : (isDark ? 0.18 : 0.28),
+          ambientStrength: colorlessGlass ? 0 : (isDark ? 0.006 : 0.012),
+          refractiveIndex: 1.9,
+          saturation: 1.0,
+          chromaticAberration: 0,
+        ),
+        _GemFacetKind.bottom => LiquidGlassSettings(
+          thickness: isDark ? 51 : 53,
+          blur: 0,
+          glassColor: highlightTint.withValues(alpha: isDark ? 0.009 : 0.008),
+          lightAngle: isDark ? 252.0 : 258.0,
+          lightIntensity: colorlessGlass ? 0 : (isDark ? 0.16 : 0.26),
+          ambientStrength: colorlessGlass ? 0 : (isDark ? 0.006 : 0.012),
+          refractiveIndex: 2.02,
+          saturation: 1.0,
+          chromaticAberration: 0,
+        ),
+        _GemFacetKind.right => LiquidGlassSettings(
+          thickness: isDark ? 50 : 52,
+          blur: 0,
+          glassColor: highlightTint.withValues(alpha: isDark ? 0.012 : 0.01),
+          lightAngle: isDark ? 340.0 : 346.0,
+          lightIntensity: colorlessGlass ? 0 : (isDark ? 0.18 : 0.3),
+          ambientStrength: colorlessGlass ? 0 : (isDark ? 0.006 : 0.012),
+          refractiveIndex: 2.14,
+          saturation: 1.0,
+          chromaticAberration: 0,
+        ),
+        _GemFacetKind.table => LiquidGlassSettings(
+          thickness: isDark ? 49 : 51,
+          blur: 0,
+          glassColor: highlightTint.withValues(alpha: isDark ? 0.01 : 0.009),
+          lightAngle: isDark ? 128.0 : 134.0,
+          lightIntensity: colorlessGlass ? 0 : (isDark ? 0.17 : 0.27),
+          ambientStrength: colorlessGlass ? 0 : (isDark ? 0.007 : 0.013),
+          refractiveIndex: 1.98,
+          saturation: 1.0,
+          chromaticAberration: 0,
+        ),
+      };
+    }
+
+    return ClipPath(
+      clipper: _GemFacetClipper(kind: kind),
+      clipBehavior: Clip.hardEdge,
+      child: RepaintBoundary(
+        child: AdaptiveGlass(
+          shape: const LiquidRoundedRectangle(borderRadius: 0.01),
+          settings: settingsForFacet(),
+          quality: GlassQuality.standard,
+          useOwnLayer: true,
+          clipBehavior: Clip.hardEdge,
+          allowElevation: false,
+          child: const SizedBox.expand(),
+        ),
+      ),
+    );
+  }
+}
+
+class _GemFacetClipper extends CustomClipper<Path> {
+  const _GemFacetClipper({required this.kind});
+
+  final _GemFacetKind kind;
+
+  @override
+  Path getClip(Size size) {
+    final outer = _GemFacetGeometry.outerRect(size);
+    final inner = _GemFacetGeometry.innerRect(outer);
+    return switch (kind) {
+      _GemFacetKind.top => _GemFacetGeometry.topFacetPath(outer, inner),
+      _GemFacetKind.left => _GemFacetGeometry.leftFacetPath(outer, inner),
+      _GemFacetKind.bottom => _GemFacetGeometry.bottomFacetPath(outer, inner),
+      _GemFacetKind.right => _GemFacetGeometry.rightFacetPath(outer, inner),
+      _GemFacetKind.table => _GemFacetGeometry.tablePath(inner),
+    };
+  }
+
+  @override
+  bool shouldReclip(covariant _GemFacetClipper oldClipper) {
+    return oldClipper.kind != kind;
+  }
+}
+
+final class _GemFacetGeometry {
+  const _GemFacetGeometry._();
+
+  static Rect outerRect(Size size) {
+    return (Offset.zero & size).deflate(0.9);
+  }
+
+  static Rect innerRect(Rect outer) {
+    return Rect.fromCenter(
+      center: outer.center,
+      width: outer.width * 0.85,
+      height: outer.height * 0.46,
+    );
+  }
+
+  static Path tablePath(Rect inner) {
+    return Path()..addRect(inner);
+  }
+
+  static Path topFacetPath(Rect outer, Rect inner) {
+    return Path()
+      ..moveTo(outer.left, outer.top)
+      ..lineTo(outer.right, outer.top)
+      ..lineTo(inner.right, inner.top)
+      ..lineTo(inner.left, inner.top)
+      ..close();
+  }
+
+  static Path bottomFacetPath(Rect outer, Rect inner) {
+    return Path()
+      ..moveTo(inner.left, inner.bottom)
+      ..lineTo(inner.right, inner.bottom)
+      ..lineTo(outer.right, outer.bottom)
+      ..lineTo(outer.left, outer.bottom)
+      ..close();
+  }
+
+  static Path leftFacetPath(Rect outer, Rect inner) {
+    return Path()
+      ..moveTo(outer.left, outer.top)
+      ..lineTo(inner.left, inner.top)
+      ..lineTo(inner.left, inner.bottom)
+      ..lineTo(outer.left, outer.bottom)
+      ..close();
+  }
+
+  static Path rightFacetPath(Rect outer, Rect inner) {
+    return Path()
+      ..moveTo(inner.right, inner.top)
+      ..lineTo(outer.right, outer.top)
+      ..lineTo(outer.right, outer.bottom)
+      ..lineTo(inner.right, inner.bottom)
+      ..close();
   }
 }
 
@@ -1383,12 +1689,12 @@ class _LoveSignatureGemPainter extends CustomPainter {
       return;
     }
 
-    final outer = (Offset.zero & size).deflate(0.9);
-    final inner = Rect.fromCenter(
-      center: outer.center,
-      width: outer.width * 0.58,
-      height: outer.height * 0.46,
-    );
+    final outer = _GemFacetGeometry.outerRect(size);
+    final inner = _GemFacetGeometry.innerRect(outer);
+    final leftFacetPath = _GemFacetGeometry.leftFacetPath(outer, inner);
+    final rightFacetPath = _GemFacetGeometry.rightFacetPath(outer, inner);
+    final leftFacetBounds = leftFacetPath.getBounds();
+    final rightFacetBounds = rightFacetPath.getBounds();
 
     final brightEdge = Colors.white.withValues(alpha: isDark ? 0.34 : 0.42);
     final coolEdge =
@@ -1401,109 +1707,84 @@ class _LoveSignatureGemPainter extends CustomPainter {
     final topFacetPaint = Paint()
       ..style = PaintingStyle.fill
       ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
         colors: [
-          brightEdge.withValues(alpha: brightEdge.a * 0.22),
-          coolEdge.withValues(alpha: coolEdge.a * 0.12),
-          Colors.transparent,
+          brightEdge.withValues(alpha: brightEdge.a * 0.26),
+          coolEdge.withValues(alpha: coolEdge.a * 0.08),
           Colors.transparent,
         ],
-        stops: const [0.0, 0.26, 0.64, 1.0],
+        stops: const [0.0, 0.46, 1.0],
       ).createShader(outer);
 
     final leftFacetPaint = Paint()
       ..style = PaintingStyle.fill
       ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+        begin: const Alignment(-1.0, -0.18),
+        end: const Alignment(1.0, 0.18),
         colors: [
-          darkEdge.withValues(alpha: darkEdge.a * 0.4),
-          darkEdge.withValues(alpha: darkEdge.a * 0.18),
-          Colors.transparent,
+          darkEdge.withValues(alpha: darkEdge.a * 0.52),
+          darkEdge.withValues(alpha: darkEdge.a * 0.36),
+          darkEdge.withValues(alpha: darkEdge.a * 0.22),
         ],
-        stops: const [0.0, 0.36, 1.0],
-      ).createShader(outer);
+        stops: const [0.0, 0.56, 1.0],
+      ).createShader(leftFacetBounds);
 
     final rightFacetPaint = Paint()
       ..style = PaintingStyle.fill
       ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+        begin: const Alignment(-1.0, -0.2),
+        end: const Alignment(1.0, 0.2),
         colors: [
-          Colors.transparent,
-          coolEdge.withValues(alpha: coolEdge.a * 0.14),
-          coolEdge.withValues(alpha: coolEdge.a * 0.24),
+          coolEdge.withValues(alpha: coolEdge.a * 0.18),
+          coolEdge.withValues(alpha: coolEdge.a * 0.28),
+          coolEdge.withValues(alpha: coolEdge.a * 0.36),
         ],
-        stops: const [0.12, 0.58, 1.0],
-      ).createShader(outer);
+        stops: const [0.0, 0.54, 1.0],
+      ).createShader(rightFacetBounds);
 
     final bottomFacetPaint = Paint()
       ..style = PaintingStyle.fill
       ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
         colors: [
           Colors.transparent,
-          darkEdge.withValues(alpha: darkEdge.a * 0.12),
-          darkEdge.withValues(alpha: darkEdge.a * 0.3),
+          coolEdge.withValues(alpha: coolEdge.a * 0.1),
+          darkEdge.withValues(alpha: darkEdge.a * 0.16),
+          darkEdge.withValues(alpha: darkEdge.a * 0.36),
         ],
-        stops: const [0.22, 0.62, 1.0],
+        stops: const [0.18, 0.5, 0.72, 1.0],
       ).createShader(outer);
 
-    canvas.drawPath(
-      Path()
-        ..moveTo(outer.left, outer.top)
-        ..lineTo(outer.right, outer.top)
-        ..lineTo(inner.right, inner.top)
-        ..lineTo(inner.left, inner.top)
-        ..close(),
-      topFacetPaint,
-    );
-
-    canvas.drawPath(
-      Path()
-        ..moveTo(outer.left, outer.top)
-        ..lineTo(inner.left, inner.top)
-        ..lineTo(inner.left, inner.bottom)
-        ..lineTo(outer.left, outer.bottom)
-        ..close(),
-      leftFacetPaint,
-    );
-
-    canvas.drawPath(
-      Path()
-        ..moveTo(inner.right, inner.top)
-        ..lineTo(outer.right, outer.top)
-        ..lineTo(outer.right, outer.bottom)
-        ..lineTo(inner.right, inner.bottom)
-        ..close(),
-      rightFacetPaint,
-    );
-
-    canvas.drawPath(
-      Path()
-        ..moveTo(inner.left, inner.bottom)
-        ..lineTo(inner.right, inner.bottom)
-        ..lineTo(outer.right, outer.bottom)
-        ..lineTo(outer.left, outer.bottom)
-        ..close(),
-      bottomFacetPaint,
-    );
-
-    final bodyGlazePaint = Paint()
+    final tableFacetPaint = Paint()
       ..style = PaintingStyle.fill
       ..shader = LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          brightEdge.withValues(alpha: brightEdge.a * 0.08),
+          brightEdge.withValues(alpha: brightEdge.a * 0.18),
           Colors.transparent,
-          darkEdge.withValues(alpha: darkEdge.a * 0.18),
+          coolEdge.withValues(alpha: coolEdge.a * 0.16),
         ],
-        stops: const [0.0, 0.48, 1.0],
-      ).createShader(outer);
-    canvas.drawRect(outer, bodyGlazePaint);
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(inner);
+
+    canvas.drawPath(
+      _GemFacetGeometry.topFacetPath(outer, inner),
+      topFacetPaint,
+    );
+
+    canvas.drawPath(leftFacetPath, leftFacetPaint);
+
+    canvas.drawPath(rightFacetPath, rightFacetPaint);
+
+    canvas.drawPath(
+      _GemFacetGeometry.bottomFacetPath(outer, inner),
+      bottomFacetPaint,
+    );
+
+    canvas.drawPath(_GemFacetGeometry.tablePath(inner), tableFacetPaint);
 
     final specularBandPaint = Paint()
       ..style = PaintingStyle.fill
@@ -1511,9 +1792,9 @@ class _LoveSignatureGemPainter extends CustomPainter {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: [
-          brightEdge.withValues(alpha: brightEdge.a * 0.2),
-          brightEdge.withValues(alpha: brightEdge.a * 0.12),
-          brightEdge.withValues(alpha: brightEdge.a * 0.04),
+          brightEdge.withValues(alpha: brightEdge.a * 0.16),
+          brightEdge.withValues(alpha: brightEdge.a * 0.1),
+          brightEdge.withValues(alpha: brightEdge.a * 0.03),
           Colors.transparent,
         ],
         stops: const [0.0, 0.34, 0.7, 1.0],
@@ -1544,93 +1825,60 @@ class _LoveSignatureGemPainter extends CustomPainter {
     );
     canvas.restore();
 
-    final outerSoftStroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          brightEdge.withValues(alpha: brightEdge.a * 0.44),
-          coolEdge.withValues(alpha: coolEdge.a * 0.3),
-          darkEdge.withValues(alpha: darkEdge.a * 0.52),
-        ],
-      ).createShader(outer);
-    final innerSoftStroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8
-      ..shader = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          brightEdge.withValues(alpha: brightEdge.a * 0.38),
-          coolEdge.withValues(alpha: coolEdge.a * 0.26),
-          darkEdge.withValues(alpha: darkEdge.a * 0.44),
-        ],
-      ).createShader(inner);
-
     final outerTopStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.06
-      ..color = brightEdge.withValues(alpha: brightEdge.a * 0.95);
+      ..strokeWidth = 1.12
+      ..color = brightEdge.withValues(alpha: brightEdge.a * 0.96);
     final outerLeftStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.0
-      ..color = coolEdge.withValues(alpha: coolEdge.a * 0.9);
+      ..strokeWidth = 1.06
+      ..color = coolEdge.withValues(alpha: coolEdge.a * 0.92);
     final outerRightStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.95
-      ..color = darkEdge.withValues(alpha: darkEdge.a * 0.8);
+      ..strokeWidth = 1.02
+      ..color = darkEdge.withValues(alpha: darkEdge.a * 0.84);
     final outerBottomStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.95
+      ..strokeWidth = 1.04
       ..color = darkEdge;
 
     final innerTopStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.96
+      ..strokeWidth = 1.02
       ..color = brightEdge.withValues(alpha: brightEdge.a * 0.9);
     final innerLeftStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.9
-      ..color = coolEdge.withValues(alpha: coolEdge.a * 0.9);
+      ..strokeWidth = 0.98
+      ..color = coolEdge.withValues(alpha: coolEdge.a * 0.92);
     final innerRightStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.86
-      ..color = darkEdge.withValues(alpha: darkEdge.a * 0.78);
+      ..strokeWidth = 0.96
+      ..color = darkEdge.withValues(alpha: darkEdge.a * 0.82);
     final innerBottomStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.86
+      ..strokeWidth = 0.98
       ..color = darkEdge;
 
-    final connectorSoftStroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round
-      ..color = brightEdge.withValues(alpha: brightEdge.a * 0.24);
     final connectorTopLeftStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 0.94
-      ..color = brightEdge.withValues(alpha: brightEdge.a * 0.9);
+      ..strokeCap = StrokeCap.butt
+      ..strokeWidth = 1.02
+      ..color = brightEdge.withValues(alpha: brightEdge.a * 0.96);
     final connectorTopRightStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 0.9
-      ..color = coolEdge.withValues(alpha: coolEdge.a * 0.84);
+      ..strokeCap = StrokeCap.butt
+      ..strokeWidth = 1.0
+      ..color = coolEdge.withValues(alpha: coolEdge.a * 0.9);
     final connectorBottomRightStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 0.84
-      ..color = darkEdge.withValues(alpha: darkEdge.a * 0.76);
+      ..strokeCap = StrokeCap.butt
+      ..strokeWidth = 0.98
+      ..color = darkEdge.withValues(alpha: darkEdge.a * 0.82);
     final connectorBottomLeftStroke = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round
-      ..strokeWidth = 0.84
-      ..color = darkEdge.withValues(alpha: darkEdge.a * 0.72);
-
-    canvas.drawRect(outer.deflate(0.3), outerSoftStroke);
-    canvas.drawRect(inner.deflate(0.2), innerSoftStroke);
+      ..strokeCap = StrokeCap.butt
+      ..strokeWidth = 0.98
+      ..color = darkEdge.withValues(alpha: darkEdge.a * 0.8);
 
     canvas.drawLine(outer.topLeft, outer.topRight, outerTopStroke);
     canvas.drawLine(outer.topLeft, outer.bottomLeft, outerLeftStroke);
@@ -1641,11 +1889,6 @@ class _LoveSignatureGemPainter extends CustomPainter {
     canvas.drawLine(inner.topLeft, inner.bottomLeft, innerLeftStroke);
     canvas.drawLine(inner.topRight, inner.bottomRight, innerRightStroke);
     canvas.drawLine(inner.bottomLeft, inner.bottomRight, innerBottomStroke);
-
-    canvas.drawLine(outer.topLeft, inner.topLeft, connectorSoftStroke);
-    canvas.drawLine(outer.topRight, inner.topRight, connectorSoftStroke);
-    canvas.drawLine(outer.bottomRight, inner.bottomRight, connectorSoftStroke);
-    canvas.drawLine(outer.bottomLeft, inner.bottomLeft, connectorSoftStroke);
 
     canvas.drawLine(outer.topLeft, inner.topLeft, connectorTopLeftStroke);
     canvas.drawLine(outer.topRight, inner.topRight, connectorTopRightStroke);
